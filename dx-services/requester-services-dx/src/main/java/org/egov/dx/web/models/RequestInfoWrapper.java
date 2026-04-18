@@ -1,0 +1,44 @@
+package org.egov.dx.web.models;
+
+import org.egov.common.contract.request.RequestInfo;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class RequestInfoWrapper {
+	
+	@JsonProperty("Transaction")
+	private Transaction transaction;
+	
+	@JsonProperty("consumerCode")
+	private String consumerCode;
+	
+	@JsonProperty("module")
+	private String module;
+	
+	@JsonProperty("fileStoreId")
+	private String fileStoreId;
+	
+	@JsonProperty("pdfUrl")
+	private String pdfUrl;
+	
+	@JsonProperty("redirectUrl")
+	private String redirectUrl;
+	
+	@JsonProperty("tenantId")
+	private String tenantId;
+
+	@JsonProperty("RequestInfo")
+	private RequestInfo requestInfo;
+}
