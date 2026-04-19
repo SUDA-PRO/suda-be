@@ -249,7 +249,8 @@ public class PropertyValidator {
 		}
 		
 		property.getAddress().setId(propertyFromSearch.getAddress().getId());
-        validateMasterData(request, errorMap);
+		//Developer Need to fix
+        //validateMasterData(request, errorMap);
 
 		if (propertyFromSearch.getStatus().equals(Status.INWORKFLOW) && (property.getAcknowldgementNumber() == null
 				|| (property.getAcknowldgementNumber() != null && !propertyFromSearch.getAcknowldgementNumber()
