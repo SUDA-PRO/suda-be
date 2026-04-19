@@ -285,7 +285,7 @@ public class PropertyValidator {
 				PTConstants.MDMS_PT_OCCUPANCYTYPE,
 				PTConstants.MDMS_PT_CONSTRUCTIONTYPE));
 
-		validateInstitution(property, errorMap);
+		//validateInstitution(property, errorMap);
 		
 		Map<String, List<String>> codes = propertyUtil.getAttributeValues(tenantId, PTConstants.MDMS_PT_MOD_NAME, masterNames,
 				"$.*.code", PTConstants.JSONPATH_CODES, request.getRequestInfo());
