@@ -95,8 +95,8 @@ public class PropertyValidator {
 		
 		if (!errorMap.isEmpty())
 			throw new CustomException(errorMap);
-
-		validateMasterData(request, errorMap);
+		//TODO: need to fix
+//		validateMasterData(request, errorMap);
 		validateMobileNumber(request, errorMap);
 		validateFields(request, errorMap);
 		if (!CollectionUtils.isEmpty(units))
@@ -268,6 +268,10 @@ public class PropertyValidator {
      */
     private void validateMasterData(PropertyRequest request,  Map<String,String> errorMap) {
     	
+
+        log.info("----Inside Validate Master Data -------");
+
+
         Property property = request.getProperty();
         String tenantId = property.getTenantId();
 
