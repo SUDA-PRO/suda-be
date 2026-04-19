@@ -249,7 +249,8 @@ public class PropertyValidator {
 		}
 		
 		property.getAddress().setId(propertyFromSearch.getAddress().getId());
-        validateMasterData(request, errorMap);
+		//Developer Need to fix
+        //validateMasterData(request, errorMap);
 
 		if (propertyFromSearch.getStatus().equals(Status.INWORKFLOW) && (property.getAcknowldgementNumber() == null
 				|| (property.getAcknowldgementNumber() != null && !propertyFromSearch.getAcknowldgementNumber()
@@ -286,7 +287,7 @@ public class PropertyValidator {
 
 		validateInstitution(property, errorMap);
 		
-		Map<String, List<String>> codes = propertyUtil.getAttributeValues(tenantId, PTConstants.MDMS_PT_MOD_NAME, masterNames,
+		//Map<String, List<String>> codes = propertyUtil.getAttributeValues(tenantId, PTConstants.MDMS_PT_MOD_NAME, masterNames,
 				"$.*.code", PTConstants.JSONPATH_CODES, request.getRequestInfo());
 		
 		if (null != codes) {
