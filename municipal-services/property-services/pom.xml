@@ -49,7 +49,7 @@
 		<dependency>
 			<groupId>org.javers</groupId>
 			<artifactId>javers-core</artifactId>
-			<version>5.11.2</version>
+			<version>6.6.5</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
