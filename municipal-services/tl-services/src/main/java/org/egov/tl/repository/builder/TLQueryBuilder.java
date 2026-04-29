@@ -107,7 +107,7 @@ public class TLQueryBuilder {
 
             List<String> ownerIds = criteria.getOwnerIds();
             if(!CollectionUtils.isEmpty(ownerIds)) {
-                builder.append(" OR (tlowner.id IN (").append(createQuery(ownerIds)).append(")");
+                builder.append(" OR (tlowner.id IN (").append(createQueryForUUIDs(ownerIds)).append(")");
                 addToPreparedStatement(preparedStmtList,ownerIds);
                 addBusinessServiceClause(criteria,preparedStmtList,builder);
                 builder.append(" AND tlowner.active = ? ))");
@@ -128,14 +128,14 @@ public class TLQueryBuilder {
             List<String> ids = criteria.getIds();
             if (!CollectionUtils.isEmpty(ids)) {
                 addClauseIfRequired(preparedStmtList, builder);
-                builder.append(" tl.id IN (").append(createQuery(ids)).append(")");
+                builder.append(" tl.id IN (").append(createQueryForUUIDs(ids)).append(")");
                 addToPreparedStatement(preparedStmtList, ids);
             }
 
             List<String> ownerIds = criteria.getOwnerIds();
             if (!CollectionUtils.isEmpty(ownerIds)) {
                 addClauseIfRequired(preparedStmtList, builder);
-                builder.append(" (tlowner.id IN (").append(createQuery(ownerIds)).append(")");
+                builder.append(" (tlowner.id IN (").append(createQueryForUUIDs(ownerIds)).append(")");
                 addToPreparedStatement(preparedStmtList, ownerIds);
                 addClauseIfRequired(preparedStmtList, builder);
                 builder.append(" tlowner.active = ? ) ");
@@ -342,6 +342,16 @@ public class TLQueryBuilder {
         return builder.toString();
     }
 
+    private String createQueryForUUIDs(List<String> ids) {
+        StringBuilder builder = new StringBuilder();
+        int length = ids.size();
+        for( int i = 0; i< length; i++){
+            builder.append(" ?");
+            if(i != length -1) builder.append(",");
+        }
+        return builder.toString();
+    }
+
     private void addToPreparedStatement(List<Object> preparedStmtList,List<String> ids)
     {
         ids.forEach(id ->{ preparedStmtList.add(id);});
@@ -384,7 +394,7 @@ public class TLQueryBuilder {
         List<String> ids = criteria.getIds();
         if (!CollectionUtils.isEmpty(ids)) {
             addClauseIfRequired(preparedStmtList,builder);
-            builder.append(" tl.id IN (").append(createQuery(ids)).append(")");
+            builder.append(" tl.id IN (").append(createQueryForUUIDs(ids)).append(")");
             addToPreparedStatement(preparedStmtList, ids);
         }
 
@@ -404,7 +414,7 @@ public class TLQueryBuilder {
 
             if(!CollectionUtils.isEmpty(ownerIds)) {
 
-                query.append(" OR (tlowner.id IN (").append(createQuery(ownerIds)).append(")");
+                query.append(" OR (tlowner.id IN (").append(createQueryForUUIDs(ownerIds)).append(")");
                 addToPreparedStatement(preparedStmtList,ownerIds);
 
                 query.append(" AND tlowner.active = ? )");
