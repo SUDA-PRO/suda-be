@@ -21,6 +21,7 @@ import org.imgscalr.Scalr.Mode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import com.microsoft.azure.storage.blob.CloudBlobClient;
 import com.microsoft.azure.storage.blob.CloudBlobContainer;
@@ -38,6 +39,12 @@ public class CloudFileMgrUtils {
 
 	@Value("${azure.sas.expiry.time.in.secs}")
 	private Integer azureSASExpiryinSecs;
+
+	@Value("${is.container.fixed:false}")
+	private Boolean isContainerFixed;
+
+	@Value("${fixed.container.name:}")
+	private String fixedContainerName;
 
 	/**
 	 * This method creates different versions of an image. A single image will be
@@ -113,8 +120,18 @@ public class CloudFileMgrUtils {
 			int index = absolutePath.indexOf('/');
 			String containerName = absolutePath.substring(0, index);
 			String fileNameWithPath = absolutePath.substring(index + 1, absolutePath.length());
+			// When a fixed container is configured, the actual blob lives in that container
+			// regardless of what prefix is stored in the DB path. Use the fixed container
+			// name so SAS generation targets the right location.
+			if (Boolean.TRUE.equals(isContainerFixed) && StringUtils.hasText(fixedContainerName)) {
+				containerName = fixedContainerName;
+			}
 			CloudBlobContainer container = azureBlobClient.getContainerReference(containerName);
-			CloudBlockBlob blob = (CloudBlockBlob) container.getBlobReferenceFromServer(fileNameWithPath);
+			// Use getBlockBlobReference (local, no server round-trip) instead of
+			// getBlobReferenceFromServer. SAS generation is a purely local cryptographic
+			// operation on the account key; it does not require the blob to exist on the
+			// server first.
+			CloudBlockBlob blob = container.getBlockBlobReference(fileNameWithPath);
 			SharedAccessBlobPolicy sasConstraints = new SharedAccessBlobPolicy();
 			sasConstraints.setSharedAccessStartTime(new Date(System.currentTimeMillis()));
 			sasConstraints

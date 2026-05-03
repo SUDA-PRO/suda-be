@@ -156,16 +156,30 @@ public class AzureBlobStorageImpl implements CloudFilesManager {
 	
 	
 	/**
-	 * Prepares the SASUrls for the resource on azure
-	 * 
+	 * Prepares the SASUrls for the resource on azure.
+	 *
+	 * When a fixed container is configured the stored file path starts with the
+	 * minio bucket name (fixed.bucketname) rather than the Azure container name
+	 * (fixed.container.name). This method replaces the leading path segment with
+	 * the actual Azure container name so the returned URL points to the correct
+	 * blob location.
+	 *
 	 * @param path
 	 * @param sasToken
 	 * @return
 	 */
 	private String getSASURL(String path, String sasToken) {
 		StringBuilder sasURL = new StringBuilder();
-		String host = azureBlobStorageHost.replace("$accountName", azureAccountName);		
-		sasURL.append(host).append("/").append(path).append("?").append(sasToken);
+		String host = azureBlobStorageHost.replace("$accountName", azureAccountName);
+		String effectivePath = path;
+		if (Boolean.TRUE.equals(isContainerFixed)
+				&& fixedContainerName != null && !fixedContainerName.isEmpty()) {
+			int idx = path.indexOf('/');
+			if (idx > 0) {
+				effectivePath = fixedContainerName + path.substring(idx);
+			}
+		}
+		sasURL.append(host).append("/").append(effectivePath).append("?").append(sasToken);
 		return sasURL.toString();
 	}
 
