@@ -43,3 +43,10 @@ CREATE TABLE IF NOT EXISTS public.eg_bpa_preapprovedplan_documents
         ON UPDATE NO ACTION
         ON DELETE NO ACTION
 );
+
+CREATE SEQUENCE IF NOT EXISTS seq_eg_bpa_preapprovedplan
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
