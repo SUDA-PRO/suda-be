@@ -448,8 +448,7 @@ public class UserService {
             HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
             
             // Use custom auth endpoint instead of standard OAuth2 token endpoint
-            String tokenUrl = userHost.endsWith("/") ? userHost + "oauth/token" : userHost + "/oauth/token";
-            return restTemplate.postForEntity(tokenUrl, request, Map.class).getBody();
+            return restTemplate.postForEntity(userHost + "/auth/token", request, Map.class).getBody();
 
         } catch (Exception e) {
             log.error("Error occurred while logging-in via register flow", e);
