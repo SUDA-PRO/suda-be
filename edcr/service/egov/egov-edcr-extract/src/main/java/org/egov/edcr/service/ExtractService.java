@@ -71,6 +71,12 @@ public class ExtractService {
         planDetail.setApplicationDate(scrutinyDate);
         Map<String, String> cityDetails = specificRuleService.getCityDetails();
 
+        if (doc == null) {
+            planDetail.addError("msg.error.failed.parsing.dxf",
+                    "Failed to parse the DXF file. Please ensure the uploaded file is a valid DXF format.");
+            return (Plan) planDetail;
+        }
+
         if (doc.getDXFHeader().getVariable("$INSUNITS") != null) {
             String unitValue = doc.getDXFHeader().getVariable("$INSUNITS").getValue("70");
             if ("1".equalsIgnoreCase(unitValue)) {

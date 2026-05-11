@@ -133,15 +133,19 @@ public class ApplicationTenantResolverFilter implements Filter {
     }
 
     private void prepareRestService(MultiReadRequestWrapper customRequest, HttpSession session) {
-        if (tenants == null || tenants.isEmpty()) {
-            tenants = tenantUtils.tenantsMap();
-        }
+        // Always rebuild the tenants map using the current request's domain URL.
+        // The map is built from ApplicationThreadLocals.getDomainURL(), so caching it
+        // statically causes failures when the map was first populated from an internal
+        // URL (e.g. http://egov-edcr.egov:8080) while later requests arrive from the
+        // public domain (https://digitalgovernance.digital).
+        tenants = tenantUtils.tenantsMap();
 
         // restricted only the state URL to access the rest API
         // LOG.info("***********Enter to set tenant id and custom header**************" + req.getRequestURL().toString());
         String requestURL = new StringBuilder().append(ApplicationThreadLocals.getDomainURL())
                 .append(customRequest.getRequestURI()).toString();
-        if (requestURL.contains(tenants.get("state"))
+        String stateURL = tenants.get("state");
+        if (stateURL != null && requestURL.contains(stateURL)
                 && (requestURL.contains("/edcr/") && (requestURL.contains("/rest/")
                         || requestURL.contains("/oauth/")))) {
 

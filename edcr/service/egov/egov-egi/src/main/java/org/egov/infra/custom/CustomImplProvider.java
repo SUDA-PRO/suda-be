@@ -118,32 +118,29 @@ public class CustomImplProvider {
                     continue;
                 }
 
-                if (!ApplicationThreadLocals.getCityName().isEmpty()
-                        && serviceName.contains(ApplicationThreadLocals.getCityName().toLowerCase())) {
+                String cityName = ApplicationThreadLocals.getCityName();
+                if (cityName != null && !cityName.isEmpty()
+                        && serviceName.contains(cityName.toLowerCase())) {
                     ulbBean = c;
                     break;
                 }
-                if (ApplicationThreadLocals.getDistrictName() == null) {
-                    throw new RuntimeException("District name is not present. Please update and try again");
-                }
-                if (!ApplicationThreadLocals.getDistrictName().isEmpty()
-                        && serviceName.contains(ApplicationThreadLocals.getDistrictName().toLowerCase())) {
-                    if (serviceName.contains("District".toLowerCase())) {
+                String districtName = ApplicationThreadLocals.getDistrictName();
+                if (districtName != null && !districtName.isEmpty()
+                        && serviceName.contains(districtName.toLowerCase())) {
+                    if (serviceName.contains("district")) {
                         districtBean = c;
                     }
                 }
 
-                if (ApplicationThreadLocals.getStateName() == null) {
-                    throw new RuntimeException("State  name is not present. Please update and try again");
-                }
-
-                if (!ApplicationThreadLocals.getStateName().isEmpty()
-                        && serviceName.contains(ApplicationThreadLocals.getStateName().toLowerCase())) {
+                String stateName = ApplicationThreadLocals.getStateName();
+                if (stateName != null && !stateName.isEmpty()
+                        && serviceName.contains(stateName.toLowerCase())) {
                     stateBean = c;
                 }
 
-                if (!ApplicationThreadLocals.getGrade().isEmpty()
-                        && serviceName.contains(ApplicationThreadLocals.getGrade().toLowerCase())) {
+                String grade = ApplicationThreadLocals.getGrade();
+                if (grade != null && !grade.isEmpty()
+                        && serviceName.contains(grade.toLowerCase())) {
                     gradeBean = c;
                 }
             }
@@ -194,34 +191,27 @@ public class CustomImplProvider {
         try {
 
             // get City wise bean
-
-            if (ApplicationThreadLocals.getCityName() == null || ApplicationThreadLocals.getCityName().isEmpty()) {
-                throw new RuntimeException("City name is not present. Please update and try again");
-            } else {
-                ulbBean = getBeanByName(beanName + "_" + ApplicationThreadLocals.getCityName());
+            String cityName = ApplicationThreadLocals.getCityName();
+            if (cityName != null && !cityName.isEmpty()) {
+                ulbBean = getBeanByName(beanName + "_" + cityName);
             }
 
             // get District wise bean
-            if (ApplicationThreadLocals.getDistrictName() == null) {
-                throw new RuntimeException("District name is not present. Please update and try again");
-            } else {
-                districtBean = getBeanByName(
-                        beanName + "_" + ApplicationThreadLocals.getDistrictName() + "_District");
+            String districtName = ApplicationThreadLocals.getDistrictName();
+            if (districtName != null && !districtName.isEmpty()) {
+                districtBean = getBeanByName(beanName + "_" + districtName + "_District");
             }
 
             // get State wise bean
-
-            if (ApplicationThreadLocals.getStateName() == null || ApplicationThreadLocals.getStateName().isEmpty()) {
-                throw new RuntimeException("State  name is not present. Please update and try again");
-            } else {
-                stateBean = getBeanByName(beanName + "_" + ApplicationThreadLocals.getStateName());
+            String stateName = ApplicationThreadLocals.getStateName();
+            if (stateName != null && !stateName.isEmpty()) {
+                stateBean = getBeanByName(beanName + "_" + stateName);
             }
 
             // get ULB grade wise bean
-            if (ApplicationThreadLocals.getGrade().isEmpty()) {
-                throw new RuntimeException("ULB grade not defined. Please update and try again");
-            } else {
-                gradeBean = getBeanByName(beanName + "_" + ApplicationThreadLocals.getGrade());
+            String grade = ApplicationThreadLocals.getGrade();
+            if (grade != null && !grade.isEmpty()) {
+                gradeBean = getBeanByName(beanName + "_" + grade);
             }
 
             // decide the order in which to return
