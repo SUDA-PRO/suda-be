@@ -87,7 +87,7 @@ public class AdditionalFeature extends FeatureProcess {
 
         for (Block block : blocks) {
             if (block.getBuilding() != null) {
-                if (block.getBuilding().getBuildingHeight().compareTo(BigDecimal.ZERO) == 0) {
+                if (block.getBuilding().getBuildingHeight() != null && block.getBuilding().getBuildingHeight().compareTo(BigDecimal.ZERO) == 0) {
                     errors.put(String.format(DcrConstants.BLOCK_BUILDING_HEIGHT, block.getNumber()),
                             edcrMessageSource.getMessage(DcrConstants.OBJECTNOTDEFINED,
                                     new String[]{
@@ -223,7 +223,7 @@ public class AdditionalFeature extends FeatureProcess {
                     detail.setPermissible(YES_NO_NA);
                     detail.setProvided(pl.getPlanInformation().getFireProtectionAndFireSafetyRequirements());
 
-                    if (pl.getPlanInformation() != null && !pl.getPlanInformation().getFireProtectionAndFireSafetyRequirements().isEmpty()) {
+                    if (pl.getPlanInformation() != null && pl.getPlanInformation().getFireProtectionAndFireSafetyRequirements() != null && !pl.getPlanInformation().getFireProtectionAndFireSafetyRequirements().isEmpty()) {
                         detail.setStatus(Result.Accepted.getResultVal());
                     } else {
                         detail.setStatus(Result.Not_Accepted.getResultVal());

@@ -22,7 +22,7 @@ public class AdditionalFeatureExtract extends FeatureExtract {
         HashMap<String, String> errors = new HashMap<>();
         List<Block> blocks = pl.getBlocks();
         for (Block block : blocks)
-            if (block.getBuilding() != null && block.getBuilding().getBuildingHeight().compareTo(BigDecimal.ZERO) == 0) {
+            if (block.getBuilding() != null && block.getBuilding().getBuildingHeight() != null && block.getBuilding().getBuildingHeight().compareTo(BigDecimal.ZERO) == 0) {
                 errors.put(String.format(DcrConstants.BLOCK_BUILDING_HEIGHT, block.getNumber()),
                         edcrMessageSource.getMessage(DcrConstants.OBJECTNOTDEFINED,
                                 new String[] { String.format(DcrConstants.BLOCK_BUILDING_HEIGHT, block.getNumber()) },
