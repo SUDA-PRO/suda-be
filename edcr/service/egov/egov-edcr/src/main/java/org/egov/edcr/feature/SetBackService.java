@@ -136,7 +136,7 @@ public class SetBackService extends FeatureProcess {
             errors.put(FRONTYARDNOTDEFINED, getLocaleMessage(OBJECTNOTDEFINED, FRONT_SETBACK + blockName + AT_LEVEL_ZERO));
         }
 
-        if (pl.getPlot().getArea().compareTo(TWO_HUNDRED) > 0) {
+        if (pl.getPlot() != null && pl.getPlot().getArea() != null && pl.getPlot().getArea().compareTo(TWO_HUNDRED) > 0) {
             if (setback.getRearYard() == null &&
                 !DcrConstants.YES.equalsIgnoreCase(pl.getPlanInformation().getNocToAbutRearDesc())) {
                 errors.put(REARYARDNOTDEFINED, getLocaleMessage(OBJECTNOTDEFINED, REAR_SETBACK + blockName + AT_LEVEL_ZERO));
@@ -251,7 +251,7 @@ public class SetBackService extends FeatureProcess {
             frontYardService.processFrontYard(pl);
 
                 boolean rearRoadReservePresent = pl.getRoadReserveRear() != null && pl.getRoadReserveRear().compareTo(BigDecimal.ZERO) > 0;
-                boolean largePlot = pl.getPlot().getArea().compareTo(TWO_HUNDRED) > 0;
+                boolean largePlot = pl.getPlot() != null && pl.getPlot().getArea() != null && pl.getPlot().getArea().compareTo(TWO_HUNDRED) > 0;
 
                 if (rearRoadReservePresent) {
                     for (Block block : pl.getBlocks()) {
