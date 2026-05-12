@@ -135,8 +135,18 @@ public class MDMSService {
             String jsonString = new JSONObject(responseMap).toString();
     		DocumentContext context = JsonPath.using(Configuration.defaultConfiguration()).parse(jsonString);
             if (BPACalculatorConstants.BUSINESSSERVICE_PREAPPROVEDPLAN.equalsIgnoreCase(businessService)) {
-        		String serviceType1 = context.read("serviceType");
-        		String applicationType1 = context.read("applicationType");
+        		String serviceType1 = null;
+        		String applicationType1 = null;
+        		try {
+        			serviceType1 = context.read("serviceType");
+        			applicationType1 = context.read("applicationType");
+        		} catch (Exception ex) {
+        			log.warn("drawingDetail missing serviceType/applicationType, falling back to BPA object fields");
+        		}
+        		if (serviceType1 == null) serviceType1 = bpa.getServiceType();
+        		if (applicationType1 == null) applicationType1 = bpa.getApplicationType();
+        		if (serviceType1 == null) serviceType1 = "NEW_CONSTRUCTION";
+        		if (applicationType1 == null) applicationType1 = "BUILDING_PLAN_SCRUTINY";
         		additionalDetails.put("serviceType", serviceType1);
         		additionalDetails.put("applicationType", applicationType1);
             }

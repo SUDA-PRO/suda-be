@@ -53,6 +53,12 @@ public class BPA   {
   @JsonProperty("businessService")
   private String businessService = null;
 
+  @JsonProperty("applicationType")
+  private String applicationType = null;
+
+  @JsonProperty("serviceType")
+  private String serviceType = null;
+
   @JsonProperty("landId")
   private String landId = null;
 
@@ -258,6 +264,22 @@ public class BPA   {
 
 	  public void setBusinessService(String businessService) {
 	    this.businessService = businessService;
+	  }
+
+	  public String getApplicationType() {
+	    return applicationType;
+	  }
+
+	  public void setApplicationType(String applicationType) {
+	    this.applicationType = applicationType;
+	  }
+
+	  public String getServiceType() {
+	    return serviceType;
+	  }
+
+	  public void setServiceType(String serviceType) {
+	    this.serviceType = serviceType;
 	  }
 	  
 	  
