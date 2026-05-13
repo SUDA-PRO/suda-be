@@ -100,9 +100,16 @@ public class AzureBlobStorageImpl implements CloudFilesManager {
 					String extension = FilenameUtils.getExtension(artifact.getMultipartFile().getOriginalFilename());
 					// Removed generating versions of image because it's already available in thumbnailImages, and it's causing the issue because using same input stream
 					Map<String, BufferedImage> mapOfImagesAndPaths = artifact.getThumbnailImages();
-					for(String key: mapOfImagesAndPaths.keySet()) {
-						upload(container, key, null, null, mapOfImagesAndPaths.get(key), extension);
-						mapOfImagesAndPaths.get(key).flush();
+					// OLD CODE: caused NullPointerException when thumbnailImages is null (e.g. for non-image files like DXF)
+					// for(String key: mapOfImagesAndPaths.keySet()) {
+					// 	upload(container, key, null, null, mapOfImagesAndPaths.get(key), extension);
+					// 	mapOfImagesAndPaths.get(key).flush();
+					// }
+					if (mapOfImagesAndPaths != null) {
+						for(String key: mapOfImagesAndPaths.keySet()) {
+							upload(container, key, null, null, mapOfImagesAndPaths.get(key), extension);
+							mapOfImagesAndPaths.get(key).flush();
+						}
 					}
 				}
 				upload(container, fileNameWithPath, inputStream, contentLength, null, null);

@@ -55,6 +55,7 @@ import java.util.List;
 import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 
 import org.egov.common.entity.dcr.helper.ErrorDetail;
@@ -441,8 +442,8 @@ public class RestEdcrApplicationController {
     }
 
     @GetMapping("/downloadfile")
-    public ResponseEntity<InputStreamResource> download(@RequestParam final String fileStoreId) {
-        return fileStoreUtils.fileAsResponseEntity(fileStoreId, DIGIT_DCR, true);
+    public void download(@RequestParam final String fileStoreId, HttpServletResponse response) {
+        fileStoreUtils.writeToHttpResponseStream(fileStoreId, DIGIT_DCR, response);
     }
 
     private ResponseEntity<?> getSuccessResponse(List<EdcrDetail> edcrDetails, RequestInfo requestInfo) {
