@@ -69,9 +69,11 @@ public class WorkflowIntegrator {
 			wfBusinessServiceName = config.getDisconnectBusinessServiceName();
 		} 
 		else if(sewerageConnectionRequest.isReconnectRequest()
-			|| (sewerageConnectionRequest.getSewerageConnection().getApplicationStatus().equalsIgnoreCase(SWConstants.DISCONNECTION_FINAL_STATE))) {
-		wfBusinessServiceName = config.getReconnectBusinessServiceName();
-	}
+			|| (sewerageConnectionRequest.getSewerageConnection().getApplicationStatus().equalsIgnoreCase(SWConstants.DISCONNECTION_FINAL_STATE))
+			|| (sewerageConnectionRequest.getSewerageConnection().getApplicationType() != null
+				&& sewerageConnectionRequest.getSewerageConnection().getApplicationType().equalsIgnoreCase(SWConstants.SEWERAGE_RECONNECTION))) {
+			wfBusinessServiceName = config.getReconnectBusinessServiceName();
+		}
 		else if(servicesUtil.isModifyConnectionRequest(sewerageConnectionRequest)){
 			wfBusinessServiceName = config.getModifySWBusinessServiceName();
 		}
