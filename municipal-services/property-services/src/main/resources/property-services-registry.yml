@@ -73,7 +73,7 @@ serviceMaps:
         dbType: JSONB
 
 
-    - query: INSERT INTO eg_pt_owner(ownerinfouuid, tenantid, propertyid, userid, status, isprimaryowner, ownertype, ownershippercentage, institutionid, relationship, createdby, createdtime, lastmodifiedby, lastmodifiedtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    - query: INSERT INTO eg_pt_owner(ownerinfouuid, tenantid, propertyid, userid, status, isprimaryowner, ownertype, ownershippercentage, institutionid, relationship, alternatemobilenumber, fatherorhusbandname, createdby, createdtime, lastmodifiedby, lastmodifiedtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
       basePath: Property.owners.*
       jsonMaps:
 
@@ -96,6 +96,10 @@ serviceMaps:
       - jsonPath: $.Property.owners.*.institutionId
 
       - jsonPath: $.Property.owners.*.relationship
+
+      - jsonPath: $.Property.owners.*.alternatemobilenumber
+
+      - jsonPath: $.Property.owners.*.fatherOrHusbandName
 
       - jsonPath: $.Property.auditDetails.createdBy
 
@@ -344,7 +348,7 @@ serviceMaps:
       - jsonPath: $.Property.tenantId
 
 
-    - query: INSERT INTO eg_pt_owner (ownerinfouuid, tenantid, propertyid, userid, status, isprimaryowner, ownertype, ownershippercentage, institutionid, relationship, createdby, createdtime, lastmodifiedby, lastmodifiedtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (userid, propertyid) DO UPDATE SET status=EXCLUDED.status, isprimaryowner=EXCLUDED.isprimaryowner, ownertype=EXCLUDED.ownertype, ownershippercentage=EXCLUDED.ownershippercentage, institutionid=EXCLUDED.institutionid, relationship=EXCLUDED.relationship, lastmodifiedby=EXCLUDED.lastModifiedby, lastmodifiedtime=EXCLUDED.lastmodifiedtime;
+    - query: INSERT INTO eg_pt_owner (ownerinfouuid, tenantid, propertyid, userid, status, isprimaryowner, ownertype, ownershippercentage, institutionid, relationship, alternatemobilenumber, fatherorhusbandname, createdby, createdtime, lastmodifiedby, lastmodifiedtime) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (userid, propertyid) DO UPDATE SET status=EXCLUDED.status, isprimaryowner=EXCLUDED.isprimaryowner, ownertype=EXCLUDED.ownertype, ownershippercentage=EXCLUDED.ownershippercentage, institutionid=EXCLUDED.institutionid, relationship=EXCLUDED.relationship, alternatemobilenumber=EXCLUDED.alternatemobilenumber, fatherorhusbandname=EXCLUDED.fatherorhusbandname, lastmodifiedby=EXCLUDED.lastModifiedby, lastmodifiedtime=EXCLUDED.lastmodifiedtime;
       basePath: Property.owners.*
       jsonMaps:
 
@@ -367,6 +371,10 @@ serviceMaps:
       - jsonPath: $.Property.owners.*.institutionId
 
       - jsonPath: $.Property.owners.*.relationship
+
+      - jsonPath: $.Property.owners.*.alternatemobilenumber
+
+      - jsonPath: $.Property.owners.*.fatherOrHusbandName
 
       - jsonPath: $.Property.auditDetails.createdBy
 

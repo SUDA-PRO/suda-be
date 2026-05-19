@@ -1,0 +1,1 @@
+ALTER TABLE eg_pt_owner ADD COLUMN IF NOT EXISTS fatherorhusbandname CHARACTER VARYING (256);
