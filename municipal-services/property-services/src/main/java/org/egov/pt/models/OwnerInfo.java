@@ -47,6 +47,10 @@ public class OwnerInfo extends User {
 	@JsonProperty("correspondenceAddress")
 	private String correspondenceAddress;
 
+	@SafeHtml
+	@JsonProperty("alternateMobileNumber")
+	private String alternateMobileNumber;
+
 	@JsonProperty("isPrimaryOwner")
 	private Boolean isPrimaryOwner;
 
