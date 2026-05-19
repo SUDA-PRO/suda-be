@@ -119,6 +119,9 @@ public class Connection {
 	        
 	@JsonProperty("connectionType")
 	private String connectionType = null;
+		
+	@JsonProperty("rainWaterHarvesting")
+	private Boolean rainWaterHarvesting = null;
 
 	@JsonProperty("additionalDetails")
 	private Object additionalDetails = null;
