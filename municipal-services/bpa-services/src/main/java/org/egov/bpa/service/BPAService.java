@@ -340,26 +340,48 @@ public class BPAService {
 	 * @return
 	 */
 	private List<BPA> getBPAFromMobileNumber(BPASearchCriteria criteria,LandSearchCriteria landcriteria, RequestInfo requestInfo){
-		// Generic fix: search BPA DB directly using the logged-in user's UUID (createdBy),
-		// along with any other criteria (applicationType, serviceType, applicationNo, status, etc.).
-		// This avoids calling land-services with a state-level tenantId (e.g. "pg") which
-		// returns empty when BPA data lives under a city tenantId (e.g. "pg.citya").
-		log.debug("getBPAFromMobileNumber: UUID-based BPA search for mobileNumber=" + criteria.getMobileNumber());
+		log.debug("getBPAFromMobileNumber: mobileNumber=" + criteria.getMobileNumber());
+
+		// Step 1: Try land search first (works correctly when tenantId is city-level)
+		landcriteria.setMobileNumber(criteria.getMobileNumber());
+		ArrayList<LandInfo> landInfo = landService.searchLandInfoToBPA(requestInfo, landcriteria);
+		if (!landInfo.isEmpty()) {
+			ArrayList<String> landId = new ArrayList<>();
+			landInfo.forEach(land -> landId.add(land.getId()));
+			criteria.setLandId(landId);
+			List<BPA> bpas = getBPAFromLandId(criteria, requestInfo, null);
+			for (int i = 0; i < bpas.size(); i++) {
+				for (int j = 0; j < landInfo.size(); j++) {
+					if (landInfo.get(j).getId().equalsIgnoreCase(bpas.get(i).getLandId())) {
+						bpas.get(i).setLandInfo(landInfo.get(j));
+					}
+				}
+			}
+			return bpas;
+		}
+
+		// Step 2: Land search returned empty — likely state-level tenantId (e.g. "pg").
+		// Fall back: search BPA DB by owner UUID + all criteria, then fetch land with actual BPA tenantId.
+		// NOTE: This fallback is safe for citizen self-search. For employee-search-by-mobileNumber,
+		// the employee should use a city-level tenantId so Step 1 would have succeeded.
+		log.debug("Land search empty for tenantId=" + landcriteria.getTenantId() + ", falling back to UUID-based BPA search");
+		List<BPA> bpas = new LinkedList<>();
 		if (requestInfo.getUserInfo() != null && requestInfo.getUserInfo().getUuid() != null) {
 			List<String> uuids = new ArrayList<>();
 			uuids.add(requestInfo.getUserInfo().getUuid());
 			criteria.setCreatedBy(uuids);
-		}
-		List<BPA> bpas = getBPAFromLandId(criteria, requestInfo, null);
-		if (!bpas.isEmpty()) {
-			ArrayList<String> bpaLandIds = new ArrayList<>();
-			bpas.forEach(bpa -> { if (bpa.getLandId() != null) bpaLandIds.add(bpa.getLandId()); });
-			if (!bpaLandIds.isEmpty()) {
-				landcriteria.setIds(bpaLandIds);
-				landcriteria.setTenantId(bpas.get(0).getTenantId());
-				log.debug("Fetching land with actual tenantId=" + landcriteria.getTenantId());
-				ArrayList<LandInfo> landInfos = landService.searchLandInfoToBPA(requestInfo, landcriteria);
-				populateLandToBPA(bpas, landInfos, requestInfo);
+			bpas = getBPAFromLandId(criteria, requestInfo, null);
+			if (!bpas.isEmpty()) {
+				ArrayList<String> bpaLandIds = new ArrayList<>();
+				bpas.forEach(bpa -> { if (bpa.getLandId() != null) bpaLandIds.add(bpa.getLandId()); });
+				if (!bpaLandIds.isEmpty()) {
+					landcriteria.setMobileNumber(null);
+					landcriteria.setIds(bpaLandIds);
+					landcriteria.setTenantId(bpas.get(0).getTenantId());
+					log.debug("Fetching land with actual tenantId=" + landcriteria.getTenantId());
+					ArrayList<LandInfo> enrichedLandInfos = landService.searchLandInfoToBPA(requestInfo, landcriteria);
+					populateLandToBPA(bpas, enrichedLandInfos, requestInfo);
+				}
 			}
 		}
 		return bpas;
