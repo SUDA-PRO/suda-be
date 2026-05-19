@@ -395,16 +395,25 @@ public class EnrichmentService {
 				|| wf.getAction().equalsIgnoreCase(BPAConstants.ACTION_SEND_TO_CITIZEN)) {
 
 			// Adding owners to assignes list
-			bpa.getLandInfo().getOwners().forEach(ownerInfo -> {
-			        if(ownerInfo.getUuid() != null && ownerInfo.getActive()) {
-							mobilenumberToUUIDs.put(ownerInfo.getMobileNumber(),ownerInfo.getUuid());
-					}
-			});
+			if (bpa.getLandInfo() != null) {
+				bpa.getLandInfo().getOwners().forEach(ownerInfo -> {
+				        if(ownerInfo.getUuid() != null && ownerInfo.getActive()) {
+								mobilenumberToUUIDs.put(ownerInfo.getMobileNumber(),ownerInfo.getUuid());
+						}
+				});
 
-			Set<String> registeredUUIDS = userService.getUUidFromUserName(bpa,mobilenumberToUUIDs);
+				Set<String> registeredUUIDS = userService.getUUidFromUserName(bpa,mobilenumberToUUIDs);
 
-			if (!CollectionUtils.isEmpty(registeredUUIDS))
-				assignes.addAll(registeredUUIDS);
+				if (!CollectionUtils.isEmpty(registeredUUIDS))
+					assignes.addAll(registeredUUIDS);
+			}
+
+			// Fallback for SEND_TO_CITIZEN: if the mobile number lookup returned no results
+			// (e.g. mobile numbers are encrypted in land-services), use the BPA account owner.
+			// This preserves normal flow when lookup works, and fixes the encrypted-mobile case.
+			if (wf.getAction().equalsIgnoreCase(BPAConstants.ACTION_SEND_TO_CITIZEN)
+					&& assignes.isEmpty() && bpa.getAccountId() != null)
+				assignes.add(bpa.getAccountId());
 
 		} else if (wf != null && (wf.getAction().equalsIgnoreCase(BPAConstants.ACTION_SEND_TO_ARCHITECT)
 				|| (bpa.getStatus().equalsIgnoreCase(BPAConstants.STATUS_CITIZEN_APPROVAL_INPROCESS)
