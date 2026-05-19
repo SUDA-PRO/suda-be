@@ -68,6 +68,20 @@ public class BPALandService {
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void updateLandInfo(BPARequest bpaRequest) {
+		// If landInfo is null (citizen didn't send it), fetch it first by landId
+		if (bpaRequest.getBPA().getLandInfo() == null && bpaRequest.getBPA().getLandId() != null) {
+			log.debug("updateLandInfo: landInfo is null, fetching by landId=" + bpaRequest.getBPA().getLandId());
+			LandSearchCriteria landcriteria = new LandSearchCriteria();
+			java.util.List<String> ids = new java.util.ArrayList<>();
+			ids.add(bpaRequest.getBPA().getLandId());
+			landcriteria.setIds(ids);
+			landcriteria.setTenantId(bpaRequest.getBPA().getTenantId());
+			ArrayList<LandInfo> fetchedLand = searchLandInfoToBPA(bpaRequest.getRequestInfo(), landcriteria);
+			if (!fetchedLand.isEmpty()) {
+				bpaRequest.getBPA().setLandInfo(fetchedLand.get(0));
+			}
+		}
+
 		StringBuilder uri = new StringBuilder(config.getLandInfoHost());
 		uri.append(config.getLandInfoUpdate());
 
