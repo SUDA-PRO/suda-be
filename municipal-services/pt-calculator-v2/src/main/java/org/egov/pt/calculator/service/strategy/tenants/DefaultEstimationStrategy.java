@@ -23,6 +23,7 @@ import org.egov.pt.calculator.web.models.property.PropertyDetail;
 import org.egov.pt.calculator.web.models.property.RequestInfoWrapper;
 import org.egov.pt.calculator.web.models.property.Unit;
 import org.egov.tracer.model.CustomException;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -43,6 +44,8 @@ import static org.egov.pt.calculator.util.CalculatorConstants.*;
 @Service
 @Slf4j
 public class DefaultEstimationStrategy implements TenantBasedEstimationStrategy {
+
+    private static final String STRATEGY_NAME = "DEFAULT_ESTIMATION_STRATEGY";
 
     @Autowired
     private Configurations configs;
@@ -77,16 +80,6 @@ public class DefaultEstimationStrategy implements TenantBasedEstimationStrategy 
             log.error("Error in DefaultEstimationStrategy.calculateTax: {}", e.getMessage(), e);
             throw new CustomException("DEFAULT_ESTIMATION_ERROR", "Default estimation calculation failed: " + e.getMessage());
         }
-    }
-
-    @Override
-    public String getStrategyName() {
-        return "DEFAULT_ESTIMATION_STRATEGY";
-    }
-
-    @Override
-    public boolean isDefault() {
-        return true;
     }
 
     /**
@@ -153,17 +146,13 @@ public class DefaultEstimationStrategy implements TenantBasedEstimationStrategy 
                         unBuiltRate += slab.getUnBuiltUnitRate();
                 }
                 taxAmt = taxAmt.add(currentUnitTax);
-                usageExemption = usageExemption
-                        .add(estimationCommonUtil.getCommonExemption(unit, currentUnitTax, assessmentYear, propertyBasedExemptionMasterMap));
+                usageExemption = calculateUnitUsageExemption(unit, usageExemption, currentUnitTax, assessmentYear, propertyBasedExemptionMasterMap);
                 i++;
             }
 
             taxAmt = taxAmt.add(estimationCommonUtil.getCommonUnBuiltRate(detail, unBuiltRate, groundUnitsCount, groundUnitsArea));
 
-            if (detail.getUnits().size() == 1) {
-                usageExemption = estimationCommonUtil.getCommonExemption(detail.getUnits().get(0), taxAmt, assessmentYear,
-                        propertyBasedExemptionMasterMap);
-            }
+            usageExemption = calculateSingleUnitUsageExemption(detail, usageExemption, taxAmt, assessmentYear, propertyBasedExemptionMasterMap);
         }
 
         List<TaxHeadEstimate> taxHeadEstimates = getEstimatesForTax(requestInfo, taxAmt, usageExemption, property, propertyBasedExemptionMasterMap,
@@ -174,6 +163,21 @@ public class DefaultEstimationStrategy implements TenantBasedEstimationStrategy 
         estimatesAndBillingSlabs.put("billingSlabIds", billingSlabIds);
 
         return estimatesAndBillingSlabs;
+    }
+
+    private BigDecimal calculateSingleUnitUsageExemption(PropertyDetail detail, BigDecimal usageExemption, BigDecimal taxAmt, String assessmentYear, Map<String, Map<String, List<Object>>> propertyBasedExemptionMasterMap) {
+        if (detail.getUnits().size() == 1) {
+            usageExemption = estimationCommonUtil.getCommonExemption(detail.getUnits().get(0), taxAmt, assessmentYear,
+                    propertyBasedExemptionMasterMap);
+        }
+        return usageExemption;
+    }
+
+    @NotNull
+    private BigDecimal calculateUnitUsageExemption(Unit unit, BigDecimal usageExemption, BigDecimal currentUnitTax, String assessmentYear, Map<String, Map<String, List<Object>>> propertyBasedExemptionMasterMap) {
+        usageExemption = usageExemption
+                .add(estimationCommonUtil.getCommonExemption(unit, currentUnitTax, assessmentYear, propertyBasedExemptionMasterMap));
+        return usageExemption;
     }
 
     private List<TaxHeadEstimate> getEstimatesForTax(RequestInfo requestInfo, BigDecimal taxAmt, BigDecimal usageExemption, Property property,
@@ -187,33 +191,16 @@ public class DefaultEstimationStrategy implements TenantBasedEstimationStrategy 
         String assessmentYear = detail.getFinancialYear();
         estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_TAX).estimateAmount(taxAmt.setScale(2, 2)).build());
 
-        usageExemption = usageExemption.setScale(2, 2).negate();
-        estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_UNIT_USAGE_EXEMPTION).estimateAmount(
-                usageExemption).build());
-        payableTax = payableTax.add(usageExemption);
+        payableTax = applyUsageExemption(usageExemption, estimates, payableTax);
 
-        BigDecimal userExemption = estimationCommonUtil.getCommonOwnerExemption(detail.getOwners(), payableTax, assessmentYear,
-                propertyBasedExemptionMasterMap).setScale(2, 2).negate();
-        estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_OWNER_EXEMPTION).estimateAmount(userExemption).build());
-        payableTax = payableTax.add(userExemption);
+        payableTax = applyOwnerExemption(propertyBasedExemptionMasterMap, detail, payableTax, assessmentYear, estimates);
 
         List<Object> fireCessMasterList = timeBasedExemeptionMasterMap.get(CalculatorConstants.FIRE_CESS_MASTER);
+
         BigDecimal fireCess;
+        fireCess = applyFireCess(payableTax, assessmentYear, fireCessMasterList, detail, estimates);
 
-        if (usePBFirecessLogic) {
-            fireCess = firecessUtils.getPBFireCess(payableTax, assessmentYear, fireCessMasterList, detail);
-            estimates.add(
-                    TaxHeadEstimate.builder().taxHeadCode(PT_FIRE_CESS).estimateAmount(fireCess.setScale(2, 2)).build());
-        } else {
-            fireCess = mDataService.getCess(payableTax, assessmentYear, fireCessMasterList);
-            estimates.add(
-                    TaxHeadEstimate.builder().taxHeadCode(PT_FIRE_CESS).estimateAmount(fireCess.setScale(2, 2)).build());
-        }
-
-        List<Object> cancerCessMasterList = timeBasedExemeptionMasterMap.get(CalculatorConstants.CANCER_CESS_MASTER);
-        BigDecimal cancerCess = mDataService.getCess(payableTax, assessmentYear, cancerCessMasterList);
-        estimates.add(
-                TaxHeadEstimate.builder().taxHeadCode(PT_CANCER_CESS).estimateAmount(cancerCess.setScale(2, 2)).build());
+        applyCancerCess(timeBasedExemeptionMasterMap, payableTax, assessmentYear, estimates);
 
         Map<String, Map<String, Object>> financialYearMaster = (Map<String, Map<String, Object>>) masterMap.get(FINANCIALYEAR_MASTER_KEY);
         Map<String, Object> finYearMap = financialYearMaster.get(assessmentYear);
@@ -223,11 +210,73 @@ public class DefaultEstimationStrategy implements TenantBasedEstimationStrategy 
         TaxPeriod taxPeriod = TaxPeriod.builder().fromDate(fromDate).toDate(toDate).build();
 
         List<Payment> payments = new LinkedList<>();
-
         if (null != property.getPropertyId() && null != property.getTenantId()) {
             payments = paymentService.getPaymentsFromProperty(property, RequestInfoWrapper.builder().requestInfo(requestInfo).build());
         }
 
+        payableTax = applyRebatePenaltyInterest(timeBasedExemeptionMasterMap, payableTax, assessmentYear, payments, taxPeriod, estimates);
+
+        applyAdhocPenalty(detail, estimates);
+
+        applyAdhocRebate(taxAmt, detail, payableTax, fireCess, estimates);
+
+        return estimates;
+    }
+
+    private BigDecimal applyOwnerExemption(Map<String, Map<String, List<Object>>> propertyBasedExemptionMasterMap, PropertyDetail detail, BigDecimal payableTax, String assessmentYear, List<TaxHeadEstimate> estimates) {
+        BigDecimal userExemption = estimationCommonUtil.getCommonOwnerExemption(detail.getOwners(), payableTax, assessmentYear,
+                propertyBasedExemptionMasterMap).setScale(2, 2).negate();
+        estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_OWNER_EXEMPTION).estimateAmount(userExemption).build());
+        payableTax = payableTax.add(userExemption);
+        return payableTax;
+    }
+
+    private static BigDecimal applyUsageExemption(BigDecimal usageExemption, List<TaxHeadEstimate> estimates, BigDecimal payableTax) {
+        usageExemption = usageExemption.setScale(2, 2).negate();
+        estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_UNIT_USAGE_EXEMPTION).estimateAmount(
+                usageExemption).build());
+        payableTax = payableTax.add(usageExemption);
+        return payableTax;
+    }
+
+    private BigDecimal applyFireCess(BigDecimal payableTax, String assessmentYear, List<Object> fireCessMasterList, PropertyDetail detail, List<TaxHeadEstimate> estimates) {
+        BigDecimal fireCess;
+        if (usePBFirecessLogic) {
+            fireCess = firecessUtils.getPBFireCess(payableTax, assessmentYear, fireCessMasterList, detail);
+            estimates.add(
+                    TaxHeadEstimate.builder().taxHeadCode(PT_FIRE_CESS).estimateAmount(fireCess.setScale(2, 2)).build());
+        } else {
+            fireCess = mDataService.getCess(payableTax, assessmentYear, fireCessMasterList);
+            estimates.add(
+                    TaxHeadEstimate.builder().taxHeadCode(PT_FIRE_CESS).estimateAmount(fireCess.setScale(2, 2)).build());
+        }
+        return fireCess;
+    }
+
+    private void applyCancerCess(Map<String, JSONArray> timeBasedExemeptionMasterMap, BigDecimal payableTax, String assessmentYear, List<TaxHeadEstimate> estimates) {
+        List<Object> cancerCessMasterList = timeBasedExemeptionMasterMap.get(CalculatorConstants.CANCER_CESS_MASTER);
+        BigDecimal cancerCess = mDataService.getCess(payableTax, assessmentYear, cancerCessMasterList);
+        estimates.add(
+                TaxHeadEstimate.builder().taxHeadCode(PT_CANCER_CESS).estimateAmount(cancerCess.setScale(2, 2)).build());
+    }
+
+    private static void applyAdhocRebate(BigDecimal taxAmt, PropertyDetail detail, BigDecimal payableTax, BigDecimal fireCess, List<TaxHeadEstimate> estimates) {
+        if (null != detail.getAdhocExemption() && detail.getAdhocExemption().compareTo(payableTax.add(fireCess)) <= 0) {
+            estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_ADHOC_REBATE)
+                    .estimateAmount(detail.getAdhocExemption().negate()).build());
+        } else if (null != detail.getAdhocExemption()) {
+            throw new CustomException(PT_ADHOC_REBATE_INVALID_AMOUNT, PT_ADHOC_REBATE_INVALID_AMOUNT_MSG + taxAmt);
+        }
+    }
+
+    private static void applyAdhocPenalty(PropertyDetail detail, List<TaxHeadEstimate> estimates) {
+        if (null != detail.getAdhocPenalty()) {
+            estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_ADHOC_PENALTY)
+                    .estimateAmount(detail.getAdhocPenalty()).build());
+        }
+    }
+
+    private BigDecimal applyRebatePenaltyInterest(Map<String, JSONArray> timeBasedExemeptionMasterMap, BigDecimal payableTax, String assessmentYear, List<Payment> payments, TaxPeriod taxPeriod, List<TaxHeadEstimate> estimates) {
         Map<String, BigDecimal> rebatePenaltyMap = payService.applyPenaltyRebateAndInterest(payableTax, BigDecimal.ZERO,
                 assessmentYear, timeBasedExemeptionMasterMap, payments, taxPeriod);
 
@@ -240,22 +289,10 @@ public class DefaultEstimationStrategy implements TenantBasedEstimationStrategy 
             estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_TIME_INTEREST).estimateAmount(interest).build());
             payableTax = payableTax.add(rebate).add(penalty).add(interest);
         }
-
-        if (null != detail.getAdhocPenalty()) {
-            estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_ADHOC_PENALTY)
-                    .estimateAmount(detail.getAdhocPenalty()).build());
-        }
-
-        if (null != detail.getAdhocExemption() && detail.getAdhocExemption().compareTo(payableTax.add(fireCess)) <= 0) {
-            estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_ADHOC_REBATE)
-                    .estimateAmount(detail.getAdhocExemption().negate()).build());
-        } else if (null != detail.getAdhocExemption()) {
-            throw new CustomException(PT_ADHOC_REBATE_INVALID_AMOUNT, PT_ADHOC_REBATE_INVALID_AMOUNT_MSG + taxAmt);
-        }
-        return estimates;
+        return payableTax;
     }
 
-    public BigDecimal getTenantTaxForUnit(BillingSlab slab, Unit unit, Property property) {
+    private BigDecimal getTenantTaxForUnit(BillingSlab slab, Unit unit, Property property) {
         boolean isUnitCommercial = unit.getUsageCategoryMajor().equalsIgnoreCase(configs.getUsageMajorNonResidential());
         boolean isUnitRented = unit.getOccupancyType().equalsIgnoreCase(configs.getOccupancyTypeRented());
         BigDecimal currentUnitTax;
@@ -285,6 +322,16 @@ public class DefaultEstimationStrategy implements TenantBasedEstimationStrategy 
             currentUnitTax = BigDecimal.valueOf(unit.getUnitArea() * slab.getUnitRate());
         }
         return currentUnitTax;
+    }
+
+    @Override
+    public String getStrategyName() {
+        return STRATEGY_NAME;
+    }
+
+    @Override
+    public boolean isDefault() {
+        return true;
     }
 }
 
