@@ -1,9 +1,7 @@
 package org.egov.pt.calculator.service;
 
 import java.math.BigDecimal;
-import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,6 +15,7 @@ import org.egov.pt.calculator.util.CalculatorUtils;
 import org.egov.pt.calculator.util.Configurations;
 import org.egov.pt.calculator.util.PBFirecessUtils;
 import org.egov.pt.calculator.validator.CalculationValidator;
+import org.egov.tracer.model.CustomException;
 import org.egov.pt.calculator.web.models.*;
 import org.egov.pt.calculator.web.models.BillingSlabSearchCriteria;
 import org.egov.pt.calculator.web.models.collections.Payment;
@@ -29,9 +28,7 @@ import org.egov.pt.calculator.web.models.TaxHeadEstimate;
 import org.egov.pt.calculator.web.models.demand.Category;
 import org.egov.pt.calculator.web.models.demand.TaxHeadMaster;
 import org.egov.pt.calculator.web.models.property.*;
-import org.egov.pt.calculator.web.models.propertyV2.AssessmentResponseV2;
 import org.egov.pt.calculator.web.models.propertyV2.PropertyV2;
-import org.egov.tracer.model.CustomException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
@@ -140,21 +137,45 @@ public class EstimationService {
 		return calculationPropertyMap;
 	}
 
+	@Autowired
+	private TenantBasedTaxCalculationService tenantBasedTaxCalculationService;
+
 	/**
 	 * Method to estimate the tax to be paid for given property
 	 * will be called by estimate api
+	 *
+	 * Uses locality-based dynamic strategy resolution to calculate tax
+	 * If tenant-specific strategy exists, it will be used; otherwise, default strategy is applied
 	 *
 	 * @param request incoming calculation request containing the criteria.
 	 * @return CalculationRes calculation object containing all the tax for the given criteria.
 	 */
     public CalculationRes getTaxCalculation(CalculationReq request) {
+        log.info("EstimationService.getTaxCalculation - Starting tax calculation request");
+        try {
+            CalculationCriteria criteria = request.getCalculationCriteria().get(0);
+            Property property = criteria.getProperty();
+            PropertyDetail detail = property.getPropertyDetails().get(0);
 
-        CalculationCriteria criteria = request.getCalculationCriteria().get(0);
-        Property property = criteria.getProperty();
-        PropertyDetail detail = property.getPropertyDetails().get(0);
-        calcValidator.validatePropertyForCalculation(detail);
-        Map<String,Object> masterMap = mDataService.getMasterMap(request);
-        return new CalculationRes(new ResponseInfo(), Collections.singletonList(getCalculation(request.getRequestInfo(), criteria, masterMap)));
+            calcValidator.validatePropertyForCalculation(detail);
+            log.info("Property validation passed for PropertyId: {}", property.getPropertyId());
+
+            Map<String,Object> masterMap = mDataService.getMasterMap(request);
+            log.debug("Master map retrieved for tenant: {}", property.getTenantId());
+
+            // Use locality-based tax calculation service with dynamic strategy resolution
+            Calculation calculation = tenantBasedTaxCalculationService.calculateTaxWithTenantStrategy(criteria, request.getRequestInfo(), masterMap);
+
+            log.info("Tax calculation completed successfully for PropertyId: {}", property.getPropertyId());
+            return new CalculationRes(new ResponseInfo(), Collections.singletonList(calculation));
+
+        } catch (CustomException ce) {
+            log.error("Custom exception in getTaxCalculation: {} - {}", ce.getCode(), ce.getMessage());
+            throw ce;
+        } catch (Exception e) {
+            log.error("Error in getTaxCalculation: {}", e.getMessage(), e);
+            throw new CustomException("TAX_CALCULATION_ERROR", "Error calculating tax: " + e.getMessage());
+        }
     }
 
 	/**

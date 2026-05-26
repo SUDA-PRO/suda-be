@@ -323,7 +323,7 @@ public class DemandService {
 	 * @param criteria
 	 * @return
 	 */
-	protected BigDecimal getCarryForwardAndCancelOldDemand(BigDecimal newTax, CalculationCriteria criteria, RequestInfo requestInfo
+	public BigDecimal getCarryForwardAndCancelOldDemand(BigDecimal newTax, CalculationCriteria criteria, RequestInfo requestInfo
 			,Demand demand, boolean cancelDemand) {
 
 		Property property = criteria.getProperty();
