@@ -3,18 +3,20 @@ package org.egov.pt.calculator.service.strategy.tenants;
 import lombok.extern.slf4j.Slf4j;
 import net.minidev.json.JSONArray;
 import org.egov.common.contract.request.RequestInfo;
-import org.egov.pt.calculator.service.*;
+import org.egov.pt.calculator.service.EnrichmentService;
+import org.egov.pt.calculator.service.MasterDataService;
+import org.egov.pt.calculator.service.PayService;
+import org.egov.pt.calculator.service.PaymentService;
 import org.egov.pt.calculator.service.strategy.TenantBasedEstimationStrategy;
-import org.egov.pt.calculator.util.*;
-import org.egov.pt.calculator.validator.CalculationValidator;
+import org.egov.pt.calculator.util.CalculatorConstants;
+import org.egov.pt.calculator.util.Configurations;
+import org.egov.pt.calculator.util.EstimationCommonUtil;
+import org.egov.pt.calculator.util.PBFirecessUtils;
 import org.egov.pt.calculator.web.models.BillingSlab;
 import org.egov.pt.calculator.web.models.Calculation;
 import org.egov.pt.calculator.web.models.CalculationCriteria;
 import org.egov.pt.calculator.web.models.TaxHeadEstimate;
 import org.egov.pt.calculator.web.models.collections.Payment;
-import org.egov.pt.calculator.web.models.demand.Category;
-import org.egov.pt.calculator.web.models.demand.Demand;
-import org.egov.pt.calculator.web.models.demand.TaxHeadMaster;
 import org.egov.pt.calculator.web.models.demand.TaxPeriod;
 import org.egov.pt.calculator.web.models.property.Property;
 import org.egov.pt.calculator.web.models.property.PropertyDetail;
@@ -27,7 +29,6 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static org.egov.pt.calculator.util.CalculatorConstants.*;
 
@@ -42,6 +43,9 @@ import static org.egov.pt.calculator.util.CalculatorConstants.*;
 @Service
 @Slf4j
 public class DefaultEstimationStrategy implements TenantBasedEstimationStrategy {
+
+    @Autowired
+    private Configurations configs;
 
     @Autowired
     private PayService payService;
@@ -113,10 +117,11 @@ public class DefaultEstimationStrategy implements TenantBasedEstimationStrategy 
         String assessmentYear = detail.getFinancialYear();
         String tenantId = property.getTenantId();
 
-        if (criteria.getFromDate() == null || criteria.getToDate() == null)
+        if (criteria.getFromDate() == null || criteria.getToDate() == null) {
             enrichmentService.enrichDemandPeriod(criteria, assessmentYear, masterMap);
+        }
 
-        List<BillingSlab> filteredBillingSlabs = estimationCommonUtil.getCommonSlabsFiltered(property, criteria.getFinancialYear(), requestInfo);
+        List<BillingSlab> filteredBillingSlabs = estimationCommonUtil.getCommonSlabsFirstLevelFiltered(property, criteria.getFinancialYear(), requestInfo);
 
         Map<String, Map<String, List<Object>>> propertyBasedExemptionMasterMap = new HashMap<>();
         Map<String, JSONArray> timeBasedExemptionMasterMap = new HashMap<>();
@@ -125,11 +130,10 @@ public class DefaultEstimationStrategy implements TenantBasedEstimationStrategy 
 
         List<String> billingSlabIds = new LinkedList<>();
 
-        if (PT_TYPE_VACANT_LAND.equalsIgnoreCase(detail.getPropertyType()) && filteredBillingSlabs.size() != 1)
+        if (PT_TYPE_VACANT_LAND.equalsIgnoreCase(detail.getPropertyType()) && filteredBillingSlabs.size() != 1) {
             throw new CustomException(PT_ESTIMATE_BILLINGSLABS_UNMATCH_VACANCT, PT_ESTIMATE_BILLINGSLABS_UNMATCH_VACANT_MSG
                     .replace("{count}", String.valueOf(filteredBillingSlabs.size())));
-
-        else if (PT_TYPE_VACANT_LAND.equalsIgnoreCase(detail.getPropertyType())) {
+        } else if (PT_TYPE_VACANT_LAND.equalsIgnoreCase(detail.getPropertyType())) {
             taxAmt = taxAmt.add(BigDecimal.valueOf(filteredBillingSlabs.get(0).getUnitRate() * detail.getLandArea()));
         } else {
             double unBuiltRate = 0.0;
@@ -138,8 +142,8 @@ public class DefaultEstimationStrategy implements TenantBasedEstimationStrategy 
             int i = 0;
 
             for (Unit unit : detail.getUnits()) {
-                BillingSlab slab = estimationCommonUtil.getCommonSlabForCalc(filteredBillingSlabs, unit);
-                BigDecimal currentUnitTax = estimationCommonUtil.getCommonTaxForUnit(slab, unit);
+                BillingSlab slab = estimationCommonUtil.getCommonUniqueSlabSecondLevelFiltered(filteredBillingSlabs, unit);
+                BigDecimal currentUnitTax = getTenantTaxForUnit(slab, unit, property);
                 billingSlabIds.add(slab.getId() + "|" + i);
 
                 if (unit.getFloorNo().equalsIgnoreCase("0")) {
@@ -156,9 +160,10 @@ public class DefaultEstimationStrategy implements TenantBasedEstimationStrategy 
 
             taxAmt = taxAmt.add(estimationCommonUtil.getCommonUnBuiltRate(detail, unBuiltRate, groundUnitsCount, groundUnitsArea));
 
-            if (detail.getUnits().size() == 1)
+            if (detail.getUnits().size() == 1) {
                 usageExemption = estimationCommonUtil.getCommonExemption(detail.getUnits().get(0), taxAmt, assessmentYear,
                         propertyBasedExemptionMasterMap);
+            }
         }
 
         List<TaxHeadEstimate> taxHeadEstimates = getEstimatesForTax(requestInfo, taxAmt, usageExemption, property, propertyBasedExemptionMasterMap,
@@ -187,7 +192,7 @@ public class DefaultEstimationStrategy implements TenantBasedEstimationStrategy 
                 usageExemption).build());
         payableTax = payableTax.add(usageExemption);
 
-        BigDecimal userExemption = estimationCommonUtil.getOwnerExemption(detail.getOwners(), payableTax, assessmentYear,
+        BigDecimal userExemption = estimationCommonUtil.getCommonOwnerExemption(detail.getOwners(), payableTax, assessmentYear,
                 propertyBasedExemptionMasterMap).setScale(2, 2).negate();
         estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_OWNER_EXEMPTION).estimateAmount(userExemption).build());
         payableTax = payableTax.add(userExemption);
@@ -236,9 +241,10 @@ public class DefaultEstimationStrategy implements TenantBasedEstimationStrategy 
             payableTax = payableTax.add(rebate).add(penalty).add(interest);
         }
 
-        if (null != detail.getAdhocPenalty())
+        if (null != detail.getAdhocPenalty()) {
             estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_ADHOC_PENALTY)
                     .estimateAmount(detail.getAdhocPenalty()).build());
+        }
 
         if (null != detail.getAdhocExemption() && detail.getAdhocExemption().compareTo(payableTax.add(fireCess)) <= 0) {
             estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_ADHOC_REBATE)
@@ -247,6 +253,38 @@ public class DefaultEstimationStrategy implements TenantBasedEstimationStrategy 
             throw new CustomException(PT_ADHOC_REBATE_INVALID_AMOUNT, PT_ADHOC_REBATE_INVALID_AMOUNT_MSG + taxAmt);
         }
         return estimates;
+    }
+
+    public BigDecimal getTenantTaxForUnit(BillingSlab slab, Unit unit, Property property) {
+        boolean isUnitCommercial = unit.getUsageCategoryMajor().equalsIgnoreCase(configs.getUsageMajorNonResidential());
+        boolean isUnitRented = unit.getOccupancyType().equalsIgnoreCase(configs.getOccupancyTypeRented());
+        BigDecimal currentUnitTax;
+
+        if (null == slab) {
+            String msg = BILLING_SLAB_MATCH_ERROR_MESSAGE
+                    .replace(BILLING_SLAB_MATCH_AREA, unit.getUnitArea().toString())
+                    .replace(BILLING_SLAB_MATCH_FLOOR, unit.getFloorNo())
+                    .replace(BILLING_SLAB_MATCH_USAGE_DETAIL,
+                            null != unit.getUsageCategoryDetail() ? unit.getUsageCategoryDetail() : "nill");
+            throw new CustomException(BILLING_SLAB_MATCH_ERROR_CODE, msg);
+        }
+
+        if (isUnitCommercial && isUnitRented) {
+            if (unit.getArv() == null) {
+                throw new CustomException(EG_PT_ESTIMATE_ARV_NULL, EG_PT_ESTIMATE_ARV_NULL_MSG);
+            }
+
+            BigDecimal multiplier;
+            if (null != slab.getArvPercent()) {
+                multiplier = BigDecimal.valueOf(slab.getArvPercent() / 100);
+            } else {
+                multiplier = BigDecimal.valueOf(configs.getArvPercent() / 100);
+            }
+            currentUnitTax = unit.getArv().multiply(multiplier);
+        } else {
+            currentUnitTax = BigDecimal.valueOf(unit.getUnitArea() * slab.getUnitRate());
+        }
+        return currentUnitTax;
     }
 }
 
