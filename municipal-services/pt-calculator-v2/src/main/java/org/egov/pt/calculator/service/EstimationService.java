@@ -1,6 +1,7 @@
 package org.egov.pt.calculator.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -820,7 +821,8 @@ public class EstimationService {
 		if(billingSlabRes.getBillingSlab().get(0).getType().equals(MutationBillingSlab.TypeEnum.RATE)){
 			BigDecimal rate = BigDecimal.valueOf(billingSlabRes.getBillingSlab().get(0).getRate());
 			BigDecimal marketValuefess = BigDecimal.valueOf(billingSlabSearchCriteria.getMarketValue());
-			fees= marketValuefess.multiply(rate.divide(CalculatorConstants.HUNDRED));
+			// Round to whole number: collection-services rejects fractional bill amounts
+			fees= marketValuefess.multiply(rate.divide(CalculatorConstants.HUNDRED)).setScale(0, RoundingMode.HALF_UP);
 		}
 		slabIds.add(billingSlabRes.getBillingSlab().get(0).getId());
 		calculation.setBillingSlabIds(slabIds);
@@ -858,14 +860,15 @@ public class EstimationService {
 			penalty = getPenalty(taxAmt,timeBasedExemptionMasterMap.get(CalculatorConstants.PENANLTY_MASTER),docDate);
 		}
 
-		calculation.setRebate(rebate.setScale(2, 2).negate());
-		calculation.setPenalty(penalty.setScale(2, 2));
+		// Round rebate/penalty to whole numbers: collection-services rejects fractional demands
+		calculation.setRebate(rebate.setScale(0, RoundingMode.HALF_UP).negate());
+		calculation.setPenalty(penalty.setScale(0, RoundingMode.HALF_UP));
 		calculation.setExemption(BigDecimal.ZERO);
 
 		
 		BigDecimal totalAmount = calculation.getTaxAmount()
 				.add(calculation.getRebate().add(calculation.getExemption())).add(calculation.getPenalty());
-		calculation.setTotalAmount(totalAmount);
+		calculation.setTotalAmount(totalAmount.setScale(0, RoundingMode.HALF_UP));
 	}
 
 
