@@ -19,6 +19,7 @@ import static org.egov.collection.util.Utils.jsonMerge;
 import static org.springframework.util.ObjectUtils.isEmpty;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -366,6 +367,16 @@ public class PaymentValidator {
                                                   Map<String, String> errorMap) {
 
         Bill bill = paymentDetail.getBill();
+
+        // Auto-round fractional bill/payment amounts to nearest rupee.
+        // pt-calculator may produce decimal values (e.g. 111666.65); collection-services
+        // must accept them rather than hard-rejecting, so we normalise here.
+        if (bill.getTotalAmount() != null)
+            bill.setTotalAmount(bill.getTotalAmount().setScale(0, RoundingMode.HALF_UP));
+        if (paymentDetail.getTotalDue() != null)
+            paymentDetail.setTotalDue(paymentDetail.getTotalDue().setScale(0, RoundingMode.HALF_UP));
+        if (paymentDetail.getTotalAmountPaid() != null)
+            paymentDetail.setTotalAmountPaid(paymentDetail.getTotalAmountPaid().setScale(0, RoundingMode.HALF_UP));
 
         // If IsAdvanceAllowed is null it is interpretated as not allowed
         Boolean isAdvanceAllowed = !(bill.getIsAdvanceAllowed() == null || !bill.getIsAdvanceAllowed());
