@@ -278,6 +278,7 @@ public class CgJagdalpurEstimationStrategy implements TenantBasedEstimationStrat
         }
     }
 
+    
     private static void applyAdhocPenalty(PropertyDetail detail, List<TaxHeadEstimate> estimates) {
         if (null != detail.getAdhocPenalty()) {
             estimates.add(TaxHeadEstimate.builder().taxHeadCode(PT_ADHOC_PENALTY)
