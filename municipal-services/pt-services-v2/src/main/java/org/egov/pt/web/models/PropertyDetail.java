@@ -198,6 +198,10 @@ public class PropertyDetail   {
         @JsonProperty("adhocPenaltyReason")
         private String adhocPenaltyReason;
 
+        @Size(max=64)
+        @JsonProperty("structureType")
+        private String structureType;
+
         @JsonProperty("owners")
         @Valid
         @NotNull

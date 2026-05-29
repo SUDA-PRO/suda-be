@@ -37,7 +37,7 @@ serviceMaps:
       - jsonPath: $.Properties.*.auditDetails.lastModifiedTime
 
 
-    - query: INSERT INTO eg_pt_propertydetail_v2(tenantId,assessmentNumber,property,accountId,ownershipCategory,subOwnershipCategory,source,usage,noOfFloors,landArea,buildUpArea,additionalDetails,channel,financialYear,propertyType,propertySubType,usageCategoryMajor,usageCategoryMinor,assessmentDate,adhocExemption,adhocPenalty,adhocExemptionReason,adhocPenaltyReason,createdby, lastmodifiedby, createdtime, lastmodifiedtime) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);
+    - query: INSERT INTO eg_pt_propertydetail_v2(tenantId,assessmentNumber,property,accountId,ownershipCategory,subOwnershipCategory,source,usage,noOfFloors,landArea,buildUpArea,additionalDetails,channel,financialYear,propertyType,propertySubType,usageCategoryMajor,usageCategoryMinor,assessmentDate,adhocExemption,adhocPenalty,adhocExemptionReason,adhocPenaltyReason,structuretype,createdby, lastmodifiedby, createdtime, lastmodifiedtime) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);
       basePath: Properties.*.propertyDetails.*
       jsonMaps:
 
@@ -88,6 +88,8 @@ serviceMaps:
       - jsonPath: $.Properties.*.propertyDetails.*.adhocExemptionReason
 
       - jsonPath: $.Properties.*.propertyDetails.*.adhocPenaltyReason
+
+      - jsonPath: $.Properties.*.propertyDetails.*.structureType
 
       - jsonPath: $.Properties.*.propertyDetails.*.auditDetails.createdBy
 
@@ -186,7 +188,7 @@ serviceMaps:
 
 
 
-    - query: INSERT INTO eg_pt_address_v2(tenantId, id, property,additionalDetails,doorNo, latitude,longitude, addressid, addressnumber, type, addressline1, addressline2, landmark, city, pincode, detail,buildingName,street, locality, createdby, lastmodifiedby, createdtime, lastmodifiedtime)   VALUES (?, ? , ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    - query: INSERT INTO eg_pt_address_v2(tenantId, id, property,additionalDetails,doorNo, latitude,longitude, addressid, addressnumber, type, addressline1, addressline2, landmark, city, pincode, detail,buildingName,street, locality, roadtype, createdby, lastmodifiedby, createdtime, lastmodifiedtime)   VALUES (?, ? , ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
       basePath: Properties.*.address
       jsonMaps:
 
@@ -229,6 +231,8 @@ serviceMaps:
       - jsonPath: $.Properties.*.address.street
 
       - jsonPath: $.Properties.*.address.locality.code
+
+      - jsonPath: $.Properties.*.address.roadType
 
       - jsonPath: $.Properties.*.auditDetails.createdBy
 
@@ -368,7 +372,7 @@ serviceMaps:
 
 
 
-    - query: INSERT INTO eg_pt_propertydetail_v2(tenantId,assessmentNumber,property,accountId,ownershipCategory,subOwnershipCategory,source,usage,noOfFloors,landArea,buildUpArea,additionalDetails,channel,financialYear,propertyType,propertySubType,usageCategoryMajor,usageCategoryMinor,assessmentDate,adhocExemption,adhocPenalty,adhocExemptionReason,adhocPenaltyReason,createdby, lastmodifiedby, createdtime,lastmodifiedtime) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT (assessmentNumber) DO UPDATE SET accountId=?,financialYear=?, propertyType=?, propertySubType=?,usageCategoryMajor=?,usageCategoryMinor=?, assessmentDate=?,ownershipCategory=?,subOwnershipCategory=?,source=?,usage=?,noOfFloors=?,landArea=?,buildUpArea=?,additionalDetails=?,channel=?,adhocExemption=?,adhocPenalty=?,adhocExemptionReason=?,adhocPenaltyReason=?,lastModifiedBy=?, lastModifiedTime=?;
+    - query: INSERT INTO eg_pt_propertydetail_v2(tenantId,assessmentNumber,property,accountId,ownershipCategory,subOwnershipCategory,source,usage,noOfFloors,landArea,buildUpArea,additionalDetails,channel,financialYear,propertyType,propertySubType,usageCategoryMajor,usageCategoryMinor,assessmentDate,adhocExemption,adhocPenalty,adhocExemptionReason,adhocPenaltyReason,structuretype,createdby, lastmodifiedby, createdtime,lastmodifiedtime) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT (assessmentNumber) DO UPDATE SET accountId=?,financialYear=?, propertyType=?, propertySubType=?,usageCategoryMajor=?,usageCategoryMinor=?, assessmentDate=?,ownershipCategory=?,subOwnershipCategory=?,source=?,usage=?,noOfFloors=?,landArea=?,buildUpArea=?,additionalDetails=?,channel=?,adhocExemption=?,adhocPenalty=?,adhocExemptionReason=?,adhocPenaltyReason=?,structuretype=?,lastModifiedBy=?, lastModifiedTime=?;;
       basePath: Properties.*.propertyDetails.*
       jsonMaps:
 
@@ -420,6 +424,8 @@ serviceMaps:
 
       - jsonPath: $.Properties.*.propertyDetails.*.adhocPenaltyReason
 
+      - jsonPath: $.Properties.*.propertyDetails.*.structureType
+
       - jsonPath: $.Properties.*.propertyDetails.*.auditDetails.createdBy
 
       - jsonPath: $.Properties.*.propertyDetails.*.auditDetails.lastModifiedBy
@@ -469,6 +475,8 @@ serviceMaps:
       - jsonPath: $.Properties.*.propertyDetails.*.adhocExemptionReason
 
       - jsonPath: $.Properties.*.propertyDetails.*.adhocPenaltyReason
+
+      - jsonPath: $.Properties.*.propertyDetails.*.structureType
 
       - jsonPath: $.Properties.*.propertyDetails.*.auditDetails.lastModifiedBy
 
@@ -684,7 +692,7 @@ serviceMaps:
 
 
 
-    - query: UPDATE eg_pt_address_v2 SET additionalDetails=?,doorNo=?,latitude=?,longitude=?, addressid=?, addressnumber=?, type=?, addressline1=?, addressline2=?, landmark=?, city=?, pincode=?, detail=?,buildingName=?,street=?, locality=?, lastmodifiedby=?, lastmodifiedtime=? where id=?;
+    - query: UPDATE eg_pt_address_v2 SET additionalDetails=?,doorNo=?,latitude=?,longitude=?, addressid=?, addressnumber=?, type=?, addressline1=?, addressline2=?, landmark=?, city=?, pincode=?, detail=?,buildingName=?,street=?, locality=?, roadtype=?, lastmodifiedby=?, lastmodifiedtime=? where id=?;
       basePath: Properties.*.address
       jsonMaps:
 
@@ -721,6 +729,8 @@ serviceMaps:
       - jsonPath: $.Properties.*.address.street
 
       - jsonPath: $.Properties.*.address.locality.code
+
+      - jsonPath: $.Properties.*.address.roadType
 
       - jsonPath: $.Properties.*.auditDetails.lastModifiedBy
 

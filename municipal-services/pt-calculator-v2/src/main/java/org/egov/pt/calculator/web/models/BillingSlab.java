@@ -66,9 +66,17 @@ public class BillingSlab   {
         @JsonProperty("subOwnerShipCategory")
         private String subOwnerShipCategory;
 
-        @NotNull
         @JsonProperty("areaType")
         private String areaType;
+
+        @JsonProperty("zone")
+        private String zone;
+
+        @JsonProperty("roadType")
+        private String roadType;
+
+        @JsonProperty("structureType")
+        private String structureType;
 
         @NotNull
         @JsonProperty("fromPlotSize")

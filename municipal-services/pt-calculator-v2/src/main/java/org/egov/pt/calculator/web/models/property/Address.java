@@ -78,6 +78,8 @@ public class Address   {
         @JsonProperty("locality")
         private Boundary locality;
 
+        @JsonProperty("roadType")
+        private String roadType;
 
 }
 

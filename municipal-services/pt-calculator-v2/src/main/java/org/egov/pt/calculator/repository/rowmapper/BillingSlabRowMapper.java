@@ -28,6 +28,9 @@ public class BillingSlabRowMapper implements ResultSetExtractor<List<BillingSlab
 						.lastModifiedTime(rs.getLong("lastmodifiedtime")).build();
 
 				currentBillingSlab = BillingSlab.builder().id(rs.getString("id")).areaType(rs.getString("areaType"))
+						.zone(rs.getString("zone"))
+						.roadType(rs.getString("road_type"))
+						.structureType(rs.getString("structure_type"))
 						.isPropertyMultiFloored(rs.getBoolean("isPropertyMultiFloored"))
 						.fromFloor(rs.getDouble("fromFloor")).fromPlotSize(rs.getDouble("fromPlotSize"))
 						.ownerShipCategory(rs.getString("ownerShipCategory"))

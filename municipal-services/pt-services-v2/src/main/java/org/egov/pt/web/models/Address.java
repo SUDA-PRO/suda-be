@@ -98,5 +98,9 @@ public class Address   {
         @JsonProperty("additionalDetails")
         private Object additionalDetails;
 
+        @Size(max=64)
+        @JsonProperty("roadType")
+        private String roadType;
+
 }
 
