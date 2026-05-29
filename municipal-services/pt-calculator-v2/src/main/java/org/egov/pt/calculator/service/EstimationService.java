@@ -561,13 +561,16 @@ public class EstimationService {
 		final String dtlPtSubType = detail.getPropertySubType();
 		final String dtlOwnerShipCat = detail.getOwnershipCategory();
 		final String dtlSubOwnerShipCat = detail.getSubOwnershipCategory();
-		final String dtlAreaType = property.getAddress().getLocality().getArea();
+		// zone comes from locality.area (e.g. "1", "2" ... "5")
+		final String dtlZone = property.getAddress().getLocality().getArea();
+		// roadType and structureType come from new fields on address/propertyDetail
+		final String dtlRoadType = property.getAddress().getRoadType();
+		final String dtlStructureType = detail.getStructureType();
 		final Boolean dtlIsMultiFloored = detail.getNoOfFloors() > 1;
 
 		return billingSlabs.stream().filter(slab -> {
 
 			Boolean slabMultiFloored = slab.getIsPropertyMultiFloored();
-			String  slabAreaType = slab.getAreaType();
 			String  slabPropertyType = slab.getPropertyType();
 			String  slabPropertySubType = slab.getPropertySubType();
 			String  slabOwnerShipCat = slab.getOwnerShipCategory();
@@ -577,7 +580,27 @@ public class EstimationService {
 
 			boolean isPropertyMultiFloored = slabMultiFloored.equals(dtlIsMultiFloored);
 
-			boolean isAreaMatching = slabAreaType.equalsIgnoreCase(dtlAreaType) || all.equalsIgnoreCase(slab.getAreaType());
+			// Match by zone + roadType + structureType (new approach)
+			// Fall back to legacy areaType match if zone column is empty (backward compat)
+			boolean isAreaMatching;
+			if (slab.getZone() != null && !slab.getZone().isEmpty()) {
+				boolean isZoneMatching = slab.getZone().equalsIgnoreCase(dtlZone)
+						|| all.equalsIgnoreCase(slab.getZone());
+				boolean isRoadTypeMatching = dtlRoadType == null
+						|| slab.getRoadType() == null
+						|| slab.getRoadType().equalsIgnoreCase(dtlRoadType)
+						|| all.equalsIgnoreCase(slab.getRoadType());
+				boolean isStructureTypeMatching = dtlStructureType == null
+						|| slab.getStructureType() == null
+						|| slab.getStructureType().equalsIgnoreCase(dtlStructureType)
+						|| all.equalsIgnoreCase(slab.getStructureType());
+				isAreaMatching = isZoneMatching && isRoadTypeMatching && isStructureTypeMatching;
+			} else {
+				// legacy: match by areaType string
+				String slabAreaType = slab.getAreaType();
+				isAreaMatching = slabAreaType != null && (slabAreaType.equalsIgnoreCase(dtlZone)
+						|| all.equalsIgnoreCase(slabAreaType));
+			}
 
 			boolean isPtTypeMatching = slabPropertyType.equalsIgnoreCase(dtlPtType);
 
