@@ -93,8 +93,9 @@ public class PropertyRowMapper implements ResultSetExtractor<List<Property>> {
 						.ownershipCategory(rs.getString("ownershipcategory"))
 						.channel(Channel.fromValue(rs.getString("channel")))
 						.superBuiltUpArea(rs.getBigDecimal("propertysbpa"))
-						.usageCategory(rs.getString("pusagecategory"))
-						.oldPropertyId(rs.getString("oldPropertyId"))
+				.usageCategory(rs.getString("pusagecategory"))
+				.structureType(rs.getString("structuretype"))
+				.oldPropertyId(rs.getString("oldPropertyId"))
 						.propertyType(rs.getString("propertytype"))
 						.propertyId(rs.getString("propertyid"))
 						.accountId(rs.getString("accountid"))
@@ -343,6 +344,7 @@ public class PropertyRowMapper implements ResultSetExtractor<List<Property>> {
 		.geoLocation(geoLocation)
 		.locality(locality)
 		.tenantId(tenanId)
+		.roadType(rs.getString("roadtype"))
 		.build();
 	}
 	

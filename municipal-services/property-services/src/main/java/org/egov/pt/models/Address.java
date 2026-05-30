@@ -69,4 +69,7 @@ public class Address {
 	
 	@JsonProperty("additionalDetails")
 	private Object additionalDetails;
+
+	@JsonProperty("roadType")
+	private String roadType;
 }

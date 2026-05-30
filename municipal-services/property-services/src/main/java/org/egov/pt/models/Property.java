@@ -67,6 +67,10 @@ public class Property extends PropertyInfo {
 	@SafeHtml
 	private String usageCategory;
 
+	@JsonProperty("structureType")
+	@SafeHtml
+	private String structureType;
+
 	@Max(value = 500)
 	@JsonProperty("noOfFloors")
 	private Long noOfFloors;
