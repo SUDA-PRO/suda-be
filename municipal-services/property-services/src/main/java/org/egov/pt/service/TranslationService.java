@@ -47,6 +47,7 @@ public class TranslationService {
         localityMap.put("area",property.getAddress().getLocality().getArea());
         localityMap.put("code",property.getAddress().getLocality().getCode());
         addressMap.put("locality",localityMap);
+        addressMap.put("roadType", property.getAddress().getRoadType());
 
         propertyMap.put("address", addressMap);
         propertyMap.put("propertyId",property.getPropertyId());
@@ -83,7 +84,7 @@ public class TranslationService {
             String ownershipCategory = null,subOwnershipCategory = null;
             ownershipCategory = ownershipCategoryMasterData[0];
             if(ownershipCategoryMasterData.length > 1)
-                subOwnershipCategory = ownershipCategoryMasterData[1];
+                subOwnershipCategory = property.getOwnershipCategory();
 
             propertyDetail.put("ownershipCategory", ownershipCategory);
             propertyDetail.put("subOwnershipCategory", subOwnershipCategory);
@@ -165,6 +166,7 @@ public class TranslationService {
         propertyDetail.put("owners", owners);
         propertyDetail.put("units", units);
 
+        propertyMap.put("structureType", property.getStructureType());
         propertyMap.put("propertyDetails", Collections.singletonList(propertyDetail));
 
         Map<String, Object> calculationCriteria = new HashMap<>();
