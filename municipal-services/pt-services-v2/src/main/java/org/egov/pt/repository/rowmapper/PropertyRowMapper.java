@@ -76,6 +76,7 @@ public class PropertyRowMapper implements ResultSetExtractor<List<Property>> {
 						.street(rs.getString("street"))
 						.tenantId(tenanId)
 						.type(rs.getString("type"))
+						.roadType(rs.getString("roadtype"))
 						//.additionalDetails(getJsonValue(addObj))
 						.build();
 
@@ -174,6 +175,7 @@ public class PropertyRowMapper implements ResultSetExtractor<List<Property>> {
 					.adhocExemptionReason(rs.getString("adhocExemptionReason"))
 					.adhocPenalty(rs.getBigDecimal("adhocPenalty"))
 					.adhocPenaltyReason(rs.getString("adhocPenaltyReason"))
+					.structureType(rs.getString("structuretype"))
 					.tenantId(rs.getString("tenantid"))
 					.institution(institution)
 					.citizenInfo(citizenInfo)

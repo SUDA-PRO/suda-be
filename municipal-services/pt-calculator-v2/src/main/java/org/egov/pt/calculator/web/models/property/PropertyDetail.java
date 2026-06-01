@@ -140,6 +140,9 @@ public class PropertyDetail   {
         @JsonProperty("subOwnershipCategory")
         private String subOwnershipCategory;
 
+        @JsonProperty("structureType")
+        private String structureType;
+
         @JsonProperty("adhocExemption")
         private BigDecimal adhocExemption;
 
