@@ -578,7 +578,7 @@ public class EstimationService {
 			Double  slabAreaFrom = slab.getFromPlotSize();
 			Double  slabAreaTo = slab.getToPlotSize();
 
-			boolean isPropertyMultiFloored = slabMultiFloored.equals(dtlIsMultiFloored);
+			boolean isPropertyMultiFloored = slabMultiFloored == null || slabMultiFloored.equals(dtlIsMultiFloored);
 
 			// Match by zone + roadType + structureType (new approach)
 			// Fall back to legacy areaType match if zone column is empty (backward compat)
@@ -602,15 +602,20 @@ public class EstimationService {
 						|| all.equalsIgnoreCase(slabAreaType));
 			}
 
-			boolean isPtTypeMatching = slabPropertyType.equalsIgnoreCase(dtlPtType);
+			boolean isPtTypeMatching = slabPropertyType == null
+					|| slabPropertyType.equalsIgnoreCase(dtlPtType)
+					|| all.equalsIgnoreCase(slabPropertyType);
 
-			boolean isPtSubTypeMatching = slabPropertySubType.equalsIgnoreCase(dtlPtSubType)
+			boolean isPtSubTypeMatching = slabPropertySubType == null
+					|| slabPropertySubType.equalsIgnoreCase(dtlPtSubType)
 					|| all.equalsIgnoreCase(slabPropertySubType);
 
-			boolean isOwnerShipMatching = slabOwnerShipCat.equalsIgnoreCase(dtlOwnerShipCat)
+			boolean isOwnerShipMatching = slabOwnerShipCat == null
+					|| slabOwnerShipCat.equalsIgnoreCase(dtlOwnerShipCat)
 					|| all.equalsIgnoreCase(slabOwnerShipCat);
 
-			boolean isSubOwnerShipMatching = slabSubOwnerShipCat.equalsIgnoreCase(dtlSubOwnerShipCat)
+			boolean isSubOwnerShipMatching = slabSubOwnerShipCat == null
+					|| slabSubOwnerShipCat.equalsIgnoreCase(dtlSubOwnerShipCat)
 					|| all.equalsIgnoreCase(slabSubOwnerShipCat);
 
 			boolean isPlotMatching = false;
