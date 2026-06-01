@@ -57,6 +57,9 @@ public class AddressV2 {
 
 	@JsonProperty("locality")
 	private LocalityV2 locality;
+
+	@JsonProperty("roadType")
+	private String roadType;
 	
 	@JsonProperty("additionalDetails")
 	private Object additionalDetails;
