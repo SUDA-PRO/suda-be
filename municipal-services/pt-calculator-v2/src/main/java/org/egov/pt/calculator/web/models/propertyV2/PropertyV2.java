@@ -46,6 +46,9 @@ public class PropertyV2 extends PropertyInfoV2 {
 	@JsonProperty("usageCategory")
 	private String usageCategory;
 
+	@JsonProperty("structureType")
+	private String structureType;
+
 	@Max(value = 500)
 	@JsonProperty("noOfFloors")
 	private Long noOfFloors;

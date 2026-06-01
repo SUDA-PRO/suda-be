@@ -66,8 +66,10 @@ public class TranslationService {
         localityMap.put("area",property.getAddress().getLocality().getArea());
         localityMap.put("code",property.getAddress().getLocality().getCode());
         addressMap.put("locality",localityMap);
+        addressMap.put("roadType", property.getAddress().getRoadType());
 
         propertyMap.put("address", addressMap);
+        propertyMap.put("structureType", property.getStructureType());
         propertyMap.put("propertyId",property.getPropertyId());
         propertyMap.put("tenantId", property.getTenantId());
         propertyMap.put("acknowldgementNumber", property.getAcknowldgementNumber());
@@ -91,8 +93,9 @@ public class TranslationService {
         String[] ownershipCategoryMasterData  = property.getOwnershipCategory().split("\\.");
         String ownershipCategory = null,subOwnershipCategory = null;
         ownershipCategory = ownershipCategoryMasterData[0];
+        // subOwnershipCategory uses the full dotted value (e.g. "INDIVIDUAL.SINGLEOWNER") to match billing slabs
         if(ownershipCategoryMasterData.length > 1)
-            subOwnershipCategory = ownershipCategoryMasterData[1];
+            subOwnershipCategory = property.getOwnershipCategory();
 
 
         propertyDetail.put("noOfFloors", property.getNoOfFloors());
