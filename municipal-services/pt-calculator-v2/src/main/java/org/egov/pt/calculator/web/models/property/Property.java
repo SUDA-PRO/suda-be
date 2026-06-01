@@ -111,6 +111,25 @@ public class Property extends PropertyInfo{
 		private String propertyType;
 		private String ownershipCategory;
 		private String structureType;
+		
+		@NotNull
+		@Valid
+		private Address address;
+
+
+
+		public PropertyBuilder creationReason(CreationReasonEnum creationReason){
+			this.creationReason=creationReason;
+			return this;
+		}
+
+		public PropertyBuilder occupancyDate(Long occupancyDate){
+			this.occupancyDate=occupancyDate;
+			return this;
+		}
+
+		public PropertyBuilder propertyDetail( List<PropertyDetail> propertyDetails){
+			this.propertyDetails=propertyDetails;
 			return this;
 		}
 
