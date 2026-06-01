@@ -563,9 +563,9 @@ public class EstimationService {
 		final String dtlSubOwnerShipCat = detail.getSubOwnershipCategory();
 		// zone comes from locality.area (e.g. "1", "2" ... "5")
 		final String dtlZone = property.getAddress().getLocality().getArea();
-		// roadType and structureType come from new fields on address/propertyDetail
+		// roadType and structureType come from new fields on address/property
 		final String dtlRoadType = property.getAddress().getRoadType();
-		final String dtlStructureType = detail.getStructureType();
+		final String dtlStructureType = property.getStructureType();
 		final Boolean dtlIsMultiFloored = detail.getNoOfFloors() > 1;
 
 		return billingSlabs.stream().filter(slab -> {

@@ -74,6 +74,9 @@ public class Property extends PropertyInfo{
 	@JsonProperty("propertyDetails")
 	private List<PropertyDetail> propertyDetails;
 
+	@JsonProperty("structureType")
+	private String structureType;
+
 
 	public Property addpropertyDetailsItem(PropertyDetail propertyDetailsItem) {
 		if (this.propertyDetails == null) {
@@ -107,25 +110,7 @@ public class Property extends PropertyInfo{
 		private StatusEnum status;
 		private String propertyType;
 		private String ownershipCategory;
-		
-		@NotNull
-		@Valid
-		private Address address;
-
-
-
-		public PropertyBuilder creationReason(CreationReasonEnum creationReason){
-			this.creationReason=creationReason;
-			return this;
-		}
-
-		public PropertyBuilder occupancyDate(Long occupancyDate){
-			this.occupancyDate=occupancyDate;
-			return this;
-		}
-
-		public PropertyBuilder propertyDetail( List<PropertyDetail> propertyDetails){
-			this.propertyDetails=propertyDetails;
+		private String structureType;
 			return this;
 		}
 
@@ -174,6 +159,11 @@ public class Property extends PropertyInfo{
 			return this;
 		}
 
+		public PropertyBuilder structureType(String structureType){
+			this.structureType = structureType;
+			return this;
+		}
+
 		public Property build(){
 			return new Property(this);
 		}
@@ -188,6 +178,7 @@ public class Property extends PropertyInfo{
 		this.creationReason = builder.creationReason;
 		this.occupancyDate = builder.occupancyDate;
 		this.propertyDetails = builder.propertyDetails;
+		this.structureType = builder.structureType;
 
 	}
 }
