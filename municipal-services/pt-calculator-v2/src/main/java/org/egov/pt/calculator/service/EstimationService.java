@@ -648,22 +648,25 @@ public class EstimationService {
 
 			Double floorNo = Double.parseDouble(unit.getFloorNo());
 
-			boolean isMajorMatching = billSlb.getUsageCategoryMajor().equalsIgnoreCase(unit.getUsageCategoryMajor())
-					|| (billSlb.getUsageCategoryMajor().equalsIgnoreCase(all));
+			boolean isMajorMatching = safeEqualsIgnoreCase(billSlb.getUsageCategoryMajor(), unit.getUsageCategoryMajor())
+					|| safeEqualsIgnoreCase(billSlb.getUsageCategoryMajor(), all);
 
-			boolean isMinorMatching = billSlb.getUsageCategoryMinor().equalsIgnoreCase(unit.getUsageCategoryMinor())
-					|| (billSlb.getUsageCategoryMinor().equalsIgnoreCase(all));
+			boolean isMinorMatching = safeEqualsIgnoreCase(billSlb.getUsageCategoryMinor(), unit.getUsageCategoryMinor())
+					|| safeEqualsIgnoreCase(billSlb.getUsageCategoryMinor(), all)
+					|| (billSlb.getUsageCategoryMinor() == null && unit.getUsageCategoryMinor() == null);
 
-			boolean isSubMinorMatching = billSlb.getUsageCategorySubMinor().equalsIgnoreCase(
-					unit.getUsageCategorySubMinor()) || (billSlb.getUsageCategorySubMinor().equalsIgnoreCase(all));
+			boolean isSubMinorMatching = safeEqualsIgnoreCase(billSlb.getUsageCategorySubMinor(), unit.getUsageCategorySubMinor())
+					|| safeEqualsIgnoreCase(billSlb.getUsageCategorySubMinor(), all)
+					|| (billSlb.getUsageCategorySubMinor() == null && unit.getUsageCategorySubMinor() == null);
 
-			boolean isDetailsMatching = billSlb.getUsageCategoryDetail().equalsIgnoreCase(unit.getUsageCategoryDetail())
-					|| (billSlb.getUsageCategoryDetail().equalsIgnoreCase(all));
+			boolean isDetailsMatching = safeEqualsIgnoreCase(billSlb.getUsageCategoryDetail(), unit.getUsageCategoryDetail())
+					|| safeEqualsIgnoreCase(billSlb.getUsageCategoryDetail(), all)
+					|| (billSlb.getUsageCategoryDetail() == null && unit.getUsageCategoryDetail() == null);
 
 			boolean isFloorMatching = billSlb.getFromFloor() <= floorNo && billSlb.getToFloor() >= floorNo;
 
-			boolean isOccupancyTypeMatching = billSlb.getOccupancyType().equalsIgnoreCase(unit.getOccupancyType())
-					|| (billSlb.getOccupancyType().equalsIgnoreCase(all));
+			boolean isOccupancyTypeMatching = safeEqualsIgnoreCase(billSlb.getOccupancyType(), unit.getOccupancyType())
+					|| safeEqualsIgnoreCase(billSlb.getOccupancyType(), all);
 
 			if (isMajorMatching && isMinorMatching && isSubMinorMatching && isDetailsMatching && isFloorMatching
 					&& isOccupancyTypeMatching) {
@@ -1226,6 +1229,15 @@ public class EstimationService {
 			}
 		}
 		return ownerInfo;
+	}
+
+	/**
+	 * Null-safe case-insensitive string comparison
+	 */
+	private boolean safeEqualsIgnoreCase(String str1, String str2) {
+		if (str1 == null && str2 == null) return true;
+		if (str1 == null || str2 == null) return false;
+		return str1.equalsIgnoreCase(str2);
 	}
 
 
