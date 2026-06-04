@@ -235,6 +235,7 @@ public class IdGenerationService {
         HashMap<String, List<String>> sequences = new HashMap<>();
         String idFormatTemplate = idFormat;
         String cityName = null;
+        String districtCode = null;
 
         for (int i = 0; i < count; i++) {
             idFormat = idFormatTemplate;
@@ -242,10 +243,17 @@ public class IdGenerationService {
             for (String attributeName : matchList) {
 
                 if (attributeName.substring(0, 3).equalsIgnoreCase("seq")) {
-                    if (!sequences.containsKey(attributeName)) {
-                        sequences.put(attributeName, generateSequenceNumber(attributeName, requestInfo, idRequest,autoCreateNewSeqFlag));
+                    String seqName = attributeName;
+                    int seqPadding = 6; // default padding
+                    if (attributeName.contains(":")) {
+                        String[] seqParts = attributeName.split(":", 2);
+                        seqName = seqParts[0];
+                        try { seqPadding = Integer.parseInt(seqParts[1].trim()); } catch (NumberFormatException ignored) {}
                     }
-					idFormat = idFormat.replace("[" + attributeName + "]", sequences.get(attributeName).get(i));
+                    if (!sequences.containsKey(seqName)) {
+                        sequences.put(seqName, generateSequenceNumber(seqName, requestInfo, idRequest, autoCreateNewSeqFlag, seqPadding));
+                    }
+                    idFormat = idFormat.replace("[" + attributeName + "]", sequences.get(seqName).get(i));
                 } else if (attributeName.substring(0, 2).equalsIgnoreCase("fy")) {
                     idFormat = idFormat.replace("[" + attributeName + "]",
                             generateFinancialYearDateFormat(attributeName, requestInfo));
@@ -257,6 +265,11 @@ public class IdGenerationService {
                         cityName = mdmsService.getCity(requestInfo, idRequest);
                     }
                     idFormat = idFormat.replace("[" + attributeName + "]", cityName);
+                } else if (attributeName.equalsIgnoreCase("district")) {
+                    if (districtCode == null) {
+                        districtCode = mdmsService.getDistrict(requestInfo, idRequest);
+                    }
+                    idFormat = idFormat.replace("[" + attributeName + "]", districtCode);
                 } else {
                     idFormat = idFormat.replace("[" + attributeName + "]", generateRandomText(attributeName, requestInfo));
                 }
@@ -418,7 +431,7 @@ public class IdGenerationService {
      * @param requestInfo
      * @return seqNumber
      */
-    private List<String> generateSequenceNumber(String sequenceName, RequestInfo requestInfo, IdRequest idRequest,boolean autoCreateNewSeqFlag) throws Exception {
+    private List<String> generateSequenceNumber(String sequenceName, RequestInfo requestInfo, IdRequest idRequest, boolean autoCreateNewSeqFlag, int padding) throws Exception {
         Integer count = getCount(idRequest);
         List<String> sequenceList = new LinkedList<>();
         List<String> sequenceLists = new LinkedList<>();
@@ -447,7 +460,7 @@ public class IdGenerationService {
             throw new CustomException("SEQ_NUMBER_ERROR","Error retrieving seq number from existing seq in DB");
         }
         for (String seqId : sequenceList) {
-            String seqNumber = String.format("%06d", Integer.parseInt(seqId)).toString();
+            String seqNumber = String.format("%0" + padding + "d", Integer.parseInt(seqId)).toString();
             sequenceLists.add(seqNumber.toString());
         }
         return sequenceLists;
