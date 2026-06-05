@@ -244,9 +244,12 @@ public class DemandService {
             if (bpa.getLandInfo() != null && bpa.getLandInfo().getOwners() != null
                     && !bpa.getLandInfo().getOwners().isEmpty()) {
                 owner = bpa.getLandInfo().getOwners().get(0).toCommonUser();
+            } else if (bpa.getAccountId() != null) {
+                // landInfo is null (e.g. OC BPA update by employee) — use the citizen
+                // accountId as demand payer to avoid EG_BS_EMPLOYEE_UUID_NOTALLOWED
+                owner = new User();
+                owner.setUuid(bpa.getAccountId());
             } else {
-                // landInfo not populated (e.g. OC BPA when land-services is unavailable).
-                // Use the requesting user as payer so demand creation does not fail.
                 owner = requestInfo.getUserInfo();
             }
 
