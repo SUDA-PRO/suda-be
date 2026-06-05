@@ -3,15 +3,14 @@ package org.egov.inbox.service;
 import com.jayway.jsonpath.JsonPath;
 import lombok.extern.slf4j.Slf4j;
 import org.egov.common.contract.request.RequestInfo;
+import org.egov.inbox.config.InboxConfiguration;
 import org.egov.inbox.repository.ServiceRequestRepository;
 import org.egov.inbox.web.model.InboxSearchCriteria;
-import org.egov.inbox.web.model.workflow.ProcessInstanceSearchCriteria;
+import org.egov.inbox.web.model.workflow.RequestInfoWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
-import org.springframework.util.ObjectUtils;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -43,30 +42,26 @@ public class PtInboxFilterService {
     @Value("${egov.searcher.pt.count.path}")
     private String ptInboxSearcherCountEndpoint;
 
-    // Direct property-services host — used for inbox search so that
-    // applications with null propertyId (pre-approval) are not filtered out.
-    @Value("${egov.pt.service.host}")
-    private String ptServiceHost;
-
-    @Value("${egov.pt.service.search.path}")
-    private String ptServiceSearchPath;
+    // PT service search path is read from service.search.mapping (same as fetchModuleObjects)
+    // so it uses the same correctly-configured Kubernetes URL — no extra @Value needed.
+    private static final String PT_BUSINESS_SERVICE_KEY = "PT.CREATE,PT.MUTATION,PT.UPDATE";
 
     @Autowired
-    private RestTemplate restTemplate;
+    private InboxConfiguration config;
 
     @Autowired
     private ServiceRequestRepository serviceRequestRepository;
 
     /**
      * Fetches acknowledgement IDs directly from property-services/_search.
-     * This avoids the egov-searcher SQL which may have a "propertyid IS NOT NULL"
-     * condition that would filter out new applications (where propertyId is deferred
-     * to post-approval). isInboxSearch=true bypasses mandatory-criteria validation.
+     * Uses the same searchPath as fetchModuleObjects (from service.search.mapping)
+     * so the URL is guaranteed correct in every environment (local, dev, prod).
+     * isInboxSearch=true bypasses mandatory-criteria validation and also ensures
+     * applications with null propertyId (pre-approval) are NOT filtered out.
      */
     public List<String> fetchAcknowledgementIdsFromSearcher(InboxSearchCriteria criteria, HashMap<String, String> StatusIdNameMap, RequestInfo requestInfo){
         List<String> acknowledgementNumbers = new ArrayList<>();
         HashMap moduleSearchCriteria = criteria.getModuleSearchCriteria();
-        ProcessInstanceSearchCriteria processCriteria = criteria.getProcessSearchCriteria();
 
         Boolean isMobileNumberPresent = moduleSearchCriteria.containsKey(MOBILE_NUMBER_PARAM);
         List<String> userUUIDs = new ArrayList<>();
@@ -79,23 +74,16 @@ public class PtInboxFilterService {
             }
         }
 
-        // Build query params for property-services/_search
-        StringBuilder uri = new StringBuilder();
-        uri.append(ptServiceHost).append(ptServiceSearchPath);
+        // Use the same searchPath configured in service.search.mapping for PT
+        // (this is the URL already working in fetchModuleObjects)
+        String ptSearchPath = config.getServiceSearchMapping()
+                .get(PT_BUSINESS_SERVICE_KEY).get("searchPath");
+
+        StringBuilder uri = new StringBuilder(ptSearchPath);
         uri.append("?tenantId=").append(criteria.getTenantId());
         uri.append("&isInboxSearch=true");
-
-        // creationReason filter
         uri.append("&creationReason=CREATE&creationReason=MUTATION&creationReason=UPDATE");
-
-        // status filter — use workflow status names (INWORKFLOW, ACTIVE, INACTIVE)
-        if(!ObjectUtils.isEmpty(processCriteria.getStatus()) && !processCriteria.getStatus().isEmpty()){
-            // StatusIdNameMap maps uuid->name; pass status names
-            processCriteria.getStatus().forEach(stId -> {
-                String stName = StatusIdNameMap.get(stId);
-                if(!ObjectUtils.isEmpty(stName)) uri.append("&status=").append(stName);
-            });
-        }
+        uri.append("&status=INWORKFLOW");
 
         if(moduleSearchCriteria.containsKey(PROPERTY_ID_PARAM)){
             uri.append("&propertyIds=").append(moduleSearchCriteria.get(PROPERTY_ID_PARAM));
@@ -110,25 +98,27 @@ public class PtInboxFilterService {
             userUUIDs.forEach(uuid -> uri.append("&ownerIds=").append(uuid));
         }
 
-        // pagination
         uri.append("&limit=").append(criteria.getLimit());
         uri.append("&offset=").append(criteria.getOffset());
 
         moduleSearchCriteria.put(LIMIT_PARAM, criteria.getLimit());
 
-        Map<String, Object> searchRequest = new HashMap<>();
-        searchRequest.put(REQUESTINFO_PARAM, requestInfo);
+        log.info("PT inbox acknowledgement IDs fetch URL: {}", uri);
 
-        Object result = restTemplate.postForObject(uri.toString(), searchRequest, Map.class);
-        if(result != null){
-            acknowledgementNumbers = JsonPath.read(result, "$.Properties[*].acknowldgementNumber");
+        RequestInfoWrapper requestInfoWrapper = RequestInfoWrapper.builder().requestInfo(requestInfo).build();
+        try {
+            Object result = serviceRequestRepository.fetchResult(uri, requestInfoWrapper);
+            if(result != null){
+                acknowledgementNumbers = JsonPath.read(result, "$.Properties[*].acknowldgementNumber");
+            }
+        } catch (Exception e) {
+            log.error("Error fetching PT acknowledgement IDs from property-services: {}", e.getMessage());
         }
         return acknowledgementNumbers;
     }
 
     public Integer fetchAcknowledgementIdsCountFromSearcher(InboxSearchCriteria criteria, HashMap<String, String> StatusIdNameMap, RequestInfo requestInfo){
         HashMap moduleSearchCriteria = criteria.getModuleSearchCriteria();
-        ProcessInstanceSearchCriteria processCriteria = criteria.getProcessSearchCriteria();
 
         Boolean isMobileNumberPresent = moduleSearchCriteria.containsKey(MOBILE_NUMBER_PARAM);
         List<String> userUUIDs = new ArrayList<>();
@@ -141,19 +131,15 @@ public class PtInboxFilterService {
             }
         }
 
-        StringBuilder uri = new StringBuilder();
-        uri.append(ptServiceHost).append(ptServiceSearchPath);
+        String ptSearchPath = config.getServiceSearchMapping()
+                .get(PT_BUSINESS_SERVICE_KEY).get("searchPath");
+
+        StringBuilder uri = new StringBuilder(ptSearchPath);
         uri.append("?tenantId=").append(criteria.getTenantId());
         uri.append("&isInboxSearch=true");
         uri.append("&isRequestForCount=true");
         uri.append("&creationReason=CREATE&creationReason=MUTATION&creationReason=UPDATE");
-
-        if(!ObjectUtils.isEmpty(processCriteria.getStatus()) && !processCriteria.getStatus().isEmpty()){
-            processCriteria.getStatus().forEach(stId -> {
-                String stName = StatusIdNameMap.get(stId);
-                if(!ObjectUtils.isEmpty(stName)) uri.append("&status=").append(stName);
-            });
-        }
+        uri.append("&status=INWORKFLOW");
 
         if(moduleSearchCriteria.containsKey(PROPERTY_ID_PARAM)){
             uri.append("&propertyIds=").append(moduleSearchCriteria.get(PROPERTY_ID_PARAM));
@@ -168,13 +154,17 @@ public class PtInboxFilterService {
             userUUIDs.forEach(uuid -> uri.append("&ownerIds=").append(uuid));
         }
 
-        Map<String, Object> searchRequest = new HashMap<>();
-        searchRequest.put(REQUESTINFO_PARAM, requestInfo);
+        log.info("PT inbox count fetch URL: {}", uri);
 
-        Object result = restTemplate.postForObject(uri.toString(), searchRequest, Map.class);
-        if(result != null){
-            Object countVal = JsonPath.read(result, "$.count");
-            if(countVal != null) return ((Number) countVal).intValue();
+        RequestInfoWrapper requestInfoWrapper = RequestInfoWrapper.builder().requestInfo(requestInfo).build();
+        try {
+            Object result = serviceRequestRepository.fetchResult(uri, requestInfoWrapper);
+            if(result != null){
+                Object countVal = JsonPath.read(result, "$.count");
+                if(countVal != null) return ((Number) countVal).intValue();
+            }
+        } catch (Exception e) {
+            log.error("Error fetching PT count from property-services: {}", e.getMessage());
         }
         return 0;
     }
