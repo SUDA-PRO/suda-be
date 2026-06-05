@@ -43,9 +43,12 @@ public class PropertyQueryBuilder {
 
 	private static String REPLACE_STRING = "{replace}";
 
+	// COALESCE(propertyid, pid) is used as the dedup key so that pre-approval
+	// properties (propertyid IS NULL) are not silently dropped — NULL=NULL is
+	// false in SQL and would exclude them from the INNER JOIN result.
 	private static String WITH_CLAUSE_QUERY = " WITH propertyresult AS ({replace}) SELECT * FROM propertyresult "
-			+ "INNER JOIN (SELECT propertyid, min(statusorder) as minorder FROM propertyresult GROUP BY propertyid) as minresult "
-			+ "ON minresult.propertyid=propertyresult.propertyid AND minresult.minorder=propertyresult.statusorder";
+			+ "INNER JOIN (SELECT COALESCE(propertyid, pid) as dedup_key, min(statusorder) as minorder FROM propertyresult GROUP BY COALESCE(propertyid, pid)) as minresult "
+			+ "ON minresult.dedup_key=COALESCE(propertyresult.propertyid, propertyresult.pid) AND minresult.minorder=propertyresult.statusorder";
 
 
 	// Select query
