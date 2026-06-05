@@ -247,7 +247,7 @@ public class DemandService {
             } else {
                 // landInfo not populated (e.g. OC BPA when land-services is unavailable).
                 // Use the requesting user as payer so demand creation does not fail.
-                owner = requestInfo.getUserInfo().toCommonUser();
+                owner = requestInfo.getUserInfo();
             }
 
             List<DemandDetail> demandDetails = new LinkedList<>();
