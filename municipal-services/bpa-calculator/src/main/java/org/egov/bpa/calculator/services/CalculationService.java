@@ -36,6 +36,8 @@ import org.springframework.util.CollectionUtils;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.Option;
+import com.jayway.jsonpath.PathNotFoundException;
 
 import lombok.extern.slf4j.Slf4j;
 import net.minidev.json.JSONArray;
@@ -203,10 +205,11 @@ public class CalculationService {
 		if (calculationTypeMap.containsKey("calsiLogic")) {
 			LinkedHashMap ocEdcr = edcrService.getEDCRDetails(requestInfo, bpa);
 			String jsonString = new JSONObject(ocEdcr).toString();
-			DocumentContext context = JsonPath.using(Configuration.defaultConfiguration()).parse(jsonString);
+			Configuration suppressConf = Configuration.defaultConfiguration().addOptions(Option.SUPPRESS_EXCEPTIONS);
+			DocumentContext context = JsonPath.using(suppressConf).parse(jsonString);
 			JSONArray permitNumber = context.read("edcrDetail.*.permitNumber");
 			String jsonData = new JSONObject(calculationTypeMap).toString();
-			DocumentContext calcContext = JsonPath.using(Configuration.defaultConfiguration()).parse(jsonData);
+			DocumentContext calcContext = JsonPath.using(suppressConf).parse(jsonData);
 			JSONArray parameterPaths = calcContext.read("calsiLogic.*.paramPath");
 			JSONArray tLimit = calcContext.read("calsiLogic.*.tolerancelimit");
 			System.out.println("tolerance limit in: " + tLimit.get(0));
@@ -217,13 +220,24 @@ public class CalculationService {
 				if (permitBpa.getEdcrNumber() != null) {
 					LinkedHashMap edcr = edcrService.getEDCRDetails(requestInfo, permitBpa);
 					String edcrData = new JSONObject(edcr).toString();
-					edcrContext = JsonPath.using(Configuration.defaultConfiguration()).parse(edcrData);
+					edcrContext = JsonPath.using(suppressConf).parse(edcrData);
 				}
 			}
 			
 			for (int i = 0; i < parameterPaths.size(); i++) {
 				Double ocTotalBuitUpArea = context.read(parameterPaths.get(i).toString());
-				Double bpaTotalBuitUpArea = edcrContext.read(parameterPaths.get(i).toString());
+				Double bpaTotalBuitUpArea = edcrContext != null ? edcrContext.read(parameterPaths.get(i).toString()) : null;
+				if (ocTotalBuitUpArea == null || bpaTotalBuitUpArea == null) {
+					log.warn("planDetail not available in eDCR response for OC fee calculation path: {}; defaulting to zero deviation", parameterPaths.get(i));
+					calculatedAmout = 0;
+					TaxHeadEstimate estimate = new TaxHeadEstimate();
+					estimate.setEstimateAmount(BigDecimal.ZERO);
+					estimate.setCategory(Category.FEE);
+					String taxHeadCode = utils.getTaxHeadCode(bpa.getBusinessService(), calulationCriteria.getFeeType());
+					estimate.setTaxHeadCode(taxHeadCode);
+					estimates.add(estimate);
+					continue;
+				}
 				Double diffInBuildArea = ocTotalBuitUpArea - bpaTotalBuitUpArea;
 				System.out.println("difference in area: " + diffInBuildArea);
 				Double limit = Double.valueOf(tLimit.get(i).toString());
