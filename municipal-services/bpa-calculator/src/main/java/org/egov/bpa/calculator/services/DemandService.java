@@ -240,7 +240,15 @@ public class DemandService {
             String tenantId = calculation.getTenantId();
             String consumerCode = calculation.getBpa().getApplicationNo();
 
-            User owner = bpa.getLandInfo().getOwners().get(0).toCommonUser();
+            User owner;
+            if (bpa.getLandInfo() != null && bpa.getLandInfo().getOwners() != null
+                    && !bpa.getLandInfo().getOwners().isEmpty()) {
+                owner = bpa.getLandInfo().getOwners().get(0).toCommonUser();
+            } else {
+                // landInfo not populated (e.g. OC BPA when land-services is unavailable).
+                // Use the requesting user as payer so demand creation does not fail.
+                owner = requestInfo.getUserInfo().toCommonUser();
+            }
 
             List<DemandDetail> demandDetails = new LinkedList<>();
 
