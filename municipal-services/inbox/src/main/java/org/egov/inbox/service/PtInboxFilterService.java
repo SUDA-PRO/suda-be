@@ -43,165 +43,140 @@ public class PtInboxFilterService {
     @Value("${egov.searcher.pt.count.path}")
     private String ptInboxSearcherCountEndpoint;
 
+    // Direct property-services host — used for inbox search so that
+    // applications with null propertyId (pre-approval) are not filtered out.
+    @Value("${egov.pt.service.host}")
+    private String ptServiceHost;
+
+    @Value("${egov.pt.service.search.path}")
+    private String ptServiceSearchPath;
+
     @Autowired
     private RestTemplate restTemplate;
 
     @Autowired
     private ServiceRequestRepository serviceRequestRepository;
 
+    /**
+     * Fetches acknowledgement IDs directly from property-services/_search.
+     * This avoids the egov-searcher SQL which may have a "propertyid IS NOT NULL"
+     * condition that would filter out new applications (where propertyId is deferred
+     * to post-approval). isInboxSearch=true bypasses mandatory-criteria validation.
+     */
     public List<String> fetchAcknowledgementIdsFromSearcher(InboxSearchCriteria criteria, HashMap<String, String> StatusIdNameMap, RequestInfo requestInfo){
         List<String> acknowledgementNumbers = new ArrayList<>();
         HashMap moduleSearchCriteria = criteria.getModuleSearchCriteria();
         ProcessInstanceSearchCriteria processCriteria = criteria.getProcessSearchCriteria();
-        Boolean isSearchResultEmpty = false;
-        Boolean isMobileNumberPresent = false;
+
+        Boolean isMobileNumberPresent = moduleSearchCriteria.containsKey(MOBILE_NUMBER_PARAM);
         List<String> userUUIDs = new ArrayList<>();
-        if(moduleSearchCriteria.containsKey(MOBILE_NUMBER_PARAM)){
-            isMobileNumberPresent = true;
-        }
         if(isMobileNumberPresent) {
             String tenantId = criteria.getTenantId();
             String mobileNumber = String.valueOf(moduleSearchCriteria.get(MOBILE_NUMBER_PARAM));
             userUUIDs = fetchUserUUID(mobileNumber, requestInfo, tenantId);
-            Boolean isUserPresentForGivenMobileNumber = CollectionUtils.isEmpty(userUUIDs) ? false : true;
-            isSearchResultEmpty = !isMobileNumberPresent || !isUserPresentForGivenMobileNumber;
-            if(isSearchResultEmpty){
+            if(CollectionUtils.isEmpty(userUUIDs)){
                 return new ArrayList<>();
             }
         }
 
-        if(!isSearchResultEmpty){
-            Object result = null;
+        // Build query params for property-services/_search
+        StringBuilder uri = new StringBuilder();
+        uri.append(ptServiceHost).append(ptServiceSearchPath);
+        uri.append("?tenantId=").append(criteria.getTenantId());
+        uri.append("&isInboxSearch=true");
 
-            Map<String, Object> searcherRequest = new HashMap<>();
-            Map<String, Object> searchCriteria = new HashMap<>();
+        // creationReason filter
+        uri.append("&creationReason=CREATE&creationReason=MUTATION&creationReason=UPDATE");
 
-            searchCriteria.put(TENANT_ID_PARAM,criteria.getTenantId());
-            searchCriteria.put(BUSINESS_SERVICE_PARAM, processCriteria.getBusinessService());
-
-            // Accomodating module search criteria in searcher request
-            if(moduleSearchCriteria.containsKey(MOBILE_NUMBER_PARAM) && !CollectionUtils.isEmpty(userUUIDs)){
-                searchCriteria.put(USERID_PARAM, userUUIDs);
-            }
-            if(moduleSearchCriteria.containsKey(LOCALITY_PARAM)){
-                searchCriteria.put(LOCALITY_PARAM, moduleSearchCriteria.get(LOCALITY_PARAM));
-            }
-            if(moduleSearchCriteria.containsKey(PROPERTY_ID_PARAM)){
-                searchCriteria.put(PROPERTY_ID_PARAM, moduleSearchCriteria.get(PROPERTY_ID_PARAM));
-            }
-            if(moduleSearchCriteria.containsKey(PT_APPLICATION_NUMBER_PARAM)) {
-                searchCriteria.put(PT_APPLICATION_NUMBER_PARAM, moduleSearchCriteria.get(PT_APPLICATION_NUMBER_PARAM));
-            }
-
-            // Accomodating process search criteria in searcher request
-            if(!ObjectUtils.isEmpty(processCriteria.getAssignee())){
-                searchCriteria.put(ASSIGNEE_PARAM, processCriteria.getAssignee());
-            }
-            if(!ObjectUtils.isEmpty(processCriteria.getStatus())){
-                searchCriteria.put(STATUS_PARAM, processCriteria.getStatus());
-            }else{
-                if(StatusIdNameMap.values().size() > 0) {
-                    if(CollectionUtils.isEmpty(processCriteria.getStatus())) {
-                        searchCriteria.put(STATUS_PARAM, StatusIdNameMap.keySet());
-                    }
-                }
-            }
-
-            // Paginating searcher results
-            searchCriteria.put(OFFSET_PARAM, criteria.getOffset());
-            searchCriteria.put(NO_OF_RECORDS_PARAM, criteria.getLimit());
-            moduleSearchCriteria.put(LIMIT_PARAM, criteria.getLimit());
-
-            searcherRequest.put(REQUESTINFO_PARAM, requestInfo);
-            searcherRequest.put(SEARCH_CRITERIA_PARAM, searchCriteria);
-
-            StringBuilder uri = new StringBuilder();
-            if(moduleSearchCriteria.containsKey(SORT_ORDER_PARAM) && moduleSearchCriteria.get(SORT_ORDER_PARAM).equals(DESC_PARAM)){
-                uri.append(searcherHost).append(ptInboxSearcherDescEndpoint);
-            }else {
-                uri.append(searcherHost).append(ptInboxSearcherEndpoint);
-            }
-
-            result = restTemplate.postForObject(uri.toString(), searcherRequest, Map.class);
-
-            acknowledgementNumbers = JsonPath.read(result, "$.Properties.*.acknowldgementnumber");
-
+        // status filter — use workflow status names (INWORKFLOW, ACTIVE, INACTIVE)
+        if(!ObjectUtils.isEmpty(processCriteria.getStatus()) && !processCriteria.getStatus().isEmpty()){
+            // StatusIdNameMap maps uuid->name; pass status names
+            processCriteria.getStatus().forEach(stId -> {
+                String stName = StatusIdNameMap.get(stId);
+                if(!ObjectUtils.isEmpty(stName)) uri.append("&status=").append(stName);
+            });
         }
-        return  acknowledgementNumbers;
+
+        if(moduleSearchCriteria.containsKey(PROPERTY_ID_PARAM)){
+            uri.append("&propertyIds=").append(moduleSearchCriteria.get(PROPERTY_ID_PARAM));
+        }
+        if(moduleSearchCriteria.containsKey(PT_APPLICATION_NUMBER_PARAM)){
+            uri.append("&acknowledgementIds=").append(moduleSearchCriteria.get(PT_APPLICATION_NUMBER_PARAM));
+        }
+        if(moduleSearchCriteria.containsKey(LOCALITY_PARAM)){
+            uri.append("&locality=").append(moduleSearchCriteria.get(LOCALITY_PARAM));
+        }
+        if(!CollectionUtils.isEmpty(userUUIDs)){
+            userUUIDs.forEach(uuid -> uri.append("&ownerIds=").append(uuid));
+        }
+
+        // pagination
+        uri.append("&limit=").append(criteria.getLimit());
+        uri.append("&offset=").append(criteria.getOffset());
+
+        moduleSearchCriteria.put(LIMIT_PARAM, criteria.getLimit());
+
+        Map<String, Object> searchRequest = new HashMap<>();
+        searchRequest.put(REQUESTINFO_PARAM, requestInfo);
+
+        Object result = restTemplate.postForObject(uri.toString(), searchRequest, Map.class);
+        if(result != null){
+            acknowledgementNumbers = JsonPath.read(result, "$.Properties[*].acknowldgementNumber");
+        }
+        return acknowledgementNumbers;
     }
 
     public Integer fetchAcknowledgementIdsCountFromSearcher(InboxSearchCriteria criteria, HashMap<String, String> StatusIdNameMap, RequestInfo requestInfo){
-        Integer totalCount = 0;
         HashMap moduleSearchCriteria = criteria.getModuleSearchCriteria();
         ProcessInstanceSearchCriteria processCriteria = criteria.getProcessSearchCriteria();
-        Boolean isSearchResultEmpty = false;
-        Boolean isMobileNumberPresent = false;
+
+        Boolean isMobileNumberPresent = moduleSearchCriteria.containsKey(MOBILE_NUMBER_PARAM);
         List<String> userUUIDs = new ArrayList<>();
-        if(moduleSearchCriteria.containsKey(MOBILE_NUMBER_PARAM)){
-            isMobileNumberPresent = true;
-        }
         if(isMobileNumberPresent) {
             String tenantId = criteria.getTenantId();
             String mobileNumber = String.valueOf(moduleSearchCriteria.get(MOBILE_NUMBER_PARAM));
             userUUIDs = fetchUserUUID(mobileNumber, requestInfo, tenantId);
-            Boolean isUserPresentForGivenMobileNumber = CollectionUtils.isEmpty(userUUIDs) ? false : true;
-            isSearchResultEmpty = !isMobileNumberPresent || !isUserPresentForGivenMobileNumber;
-            if(isSearchResultEmpty){
+            if(CollectionUtils.isEmpty(userUUIDs)){
                 return 0;
             }
         }
 
-        if(!isSearchResultEmpty){
-            Object result = null;
+        StringBuilder uri = new StringBuilder();
+        uri.append(ptServiceHost).append(ptServiceSearchPath);
+        uri.append("?tenantId=").append(criteria.getTenantId());
+        uri.append("&isInboxSearch=true");
+        uri.append("&isRequestForCount=true");
+        uri.append("&creationReason=CREATE&creationReason=MUTATION&creationReason=UPDATE");
 
-            Map<String, Object> searcherRequest = new HashMap<>();
-            Map<String, Object> searchCriteria = new HashMap<>();
-
-            searchCriteria.put(TENANT_ID_PARAM,criteria.getTenantId());
-
-            // Accomodating module search criteria in searcher request
-            if(moduleSearchCriteria.containsKey(MOBILE_NUMBER_PARAM) && !CollectionUtils.isEmpty(userUUIDs)){
-                searchCriteria.put(USERID_PARAM, userUUIDs);
-            }
-            if(moduleSearchCriteria.containsKey(LOCALITY_PARAM)){
-                searchCriteria.put(LOCALITY_PARAM, moduleSearchCriteria.get(LOCALITY_PARAM));
-            }
-            if(moduleSearchCriteria.containsKey(PROPERTY_ID_PARAM)){
-                searchCriteria.put(PROPERTY_ID_PARAM, moduleSearchCriteria.get(PROPERTY_ID_PARAM));
-            }
-            if(moduleSearchCriteria.containsKey(PT_APPLICATION_NUMBER_PARAM)) {
-                searchCriteria.put(PT_APPLICATION_NUMBER_PARAM, moduleSearchCriteria.get(PT_APPLICATION_NUMBER_PARAM));
-            }
-
-            // Accomodating process search criteria in searcher request
-            if(!ObjectUtils.isEmpty(processCriteria.getAssignee())){
-                searchCriteria.put(ASSIGNEE_PARAM, processCriteria.getAssignee());
-            }
-            if(!ObjectUtils.isEmpty(processCriteria.getStatus())){
-                searchCriteria.put(STATUS_PARAM, processCriteria.getStatus());
-            }else{
-                if(StatusIdNameMap.values().size() > 0) {
-                    if(CollectionUtils.isEmpty(processCriteria.getStatus())) {
-                        searchCriteria.put(STATUS_PARAM, StatusIdNameMap.keySet());
-                    }
-                }
-            }
-
-            // Paginating searcher results
-
-            searcherRequest.put(REQUESTINFO_PARAM, requestInfo);
-            searcherRequest.put(SEARCH_CRITERIA_PARAM, searchCriteria);
-
-            StringBuilder uri = new StringBuilder();
-            uri.append(searcherHost).append(ptInboxSearcherCountEndpoint);
-
-            result = restTemplate.postForObject(uri.toString(), searcherRequest, Map.class);
-
-            double count = JsonPath.read(result, "$.TotalCount[0].count");
-            totalCount = new Integer((int) count);
-
+        if(!ObjectUtils.isEmpty(processCriteria.getStatus()) && !processCriteria.getStatus().isEmpty()){
+            processCriteria.getStatus().forEach(stId -> {
+                String stName = StatusIdNameMap.get(stId);
+                if(!ObjectUtils.isEmpty(stName)) uri.append("&status=").append(stName);
+            });
         }
-        return  totalCount;
+
+        if(moduleSearchCriteria.containsKey(PROPERTY_ID_PARAM)){
+            uri.append("&propertyIds=").append(moduleSearchCriteria.get(PROPERTY_ID_PARAM));
+        }
+        if(moduleSearchCriteria.containsKey(PT_APPLICATION_NUMBER_PARAM)){
+            uri.append("&acknowledgementIds=").append(moduleSearchCriteria.get(PT_APPLICATION_NUMBER_PARAM));
+        }
+        if(moduleSearchCriteria.containsKey(LOCALITY_PARAM)){
+            uri.append("&locality=").append(moduleSearchCriteria.get(LOCALITY_PARAM));
+        }
+        if(!CollectionUtils.isEmpty(userUUIDs)){
+            userUUIDs.forEach(uuid -> uri.append("&ownerIds=").append(uuid));
+        }
+
+        Map<String, Object> searchRequest = new HashMap<>();
+        searchRequest.put(REQUESTINFO_PARAM, requestInfo);
+
+        Object result = restTemplate.postForObject(uri.toString(), searchRequest, Map.class);
+        if(result != null){
+            Object countVal = JsonPath.read(result, "$.count");
+            if(countVal != null) return ((Number) countVal).intValue();
+        }
+        return 0;
     }
 
 
