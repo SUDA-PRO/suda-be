@@ -89,6 +89,23 @@ public class PropertyRepository {
 		return jdbcTemplate.queryForList(query, preparedStmtList.toArray(), String.class);
 	}
 
+	/**
+	 * Returns internal UUIDs of properties that have null propertyId (pre-approval state).
+	 * Used so that mobile-number search also returns applications pending approval.
+	 */
+	public List<String> getPropertyUuidsForNullPid(Set<String> ownerIds, String tenantId) {
+
+		List<Object> preparedStmtList = new ArrayList<>();
+		String query = queryBuilder.getPropertyUuidsForNullPidQuery(ownerIds, tenantId, preparedStmtList);
+		try {
+			query = centralUtil.replaceSchemaPlaceholder(query, tenantId);
+		} catch (InvalidTenantIdException e) {
+			throw new CustomException("EG_PT_TENANTID_ERROR",
+					"TenantId length is not sufficient to replace query schema in a multi state instance");
+		}
+		return jdbcTemplate.queryForList(query, preparedStmtList.toArray(), String.class);
+	}
+
 	public List<Property> getProperties(PropertyCriteria criteria, Boolean isApiOpen, Boolean isPlainSearch) {
 		List<Object> preparedStmtList = new ArrayList<>();
 		String query;
@@ -273,15 +290,18 @@ public class PropertyRepository {
 
 		// only used to eliminate property-ids which does not have the owner
 		List<String> propertyIds = getPropertyIds(ownerIds, userTenant);
+		// remove nulls — pre-approval properties have null propertyId in DB
+		propertyIds.removeIf(java.util.Objects::isNull);
 
-		// returning empty list if no property id found for user criteria
-		if (CollectionUtils.isEmpty(propertyIds)) {
+		// also fetch internal UUIDs for pre-approval properties (null propertyId)
+		List<String> nullPidUuids = getPropertyUuidsForNullPid(ownerIds, userTenant);
 
+		// returning empty list if no property found at all for this user
+		if (CollectionUtils.isEmpty(propertyIds) && CollectionUtils.isEmpty(nullPidUuids)) {
 			return true;
 		} else if (!CollectionUtils.isEmpty(criteria.getPropertyIds())) {
 
 			// eliminating property Ids not matching with Ids found using user data
-
 			Set<String> givenIds = criteria.getPropertyIds();
 
 			givenIds.forEach(id -> {
@@ -294,8 +314,17 @@ public class PropertyRepository {
 				return true;
 		} else {
 
-			criteria.setPropertyIds(Sets.newHashSet(propertyIds));
+			if (!CollectionUtils.isEmpty(propertyIds))
+				criteria.setPropertyIds(Sets.newHashSet(propertyIds));
 		}
+
+		// include pre-approval properties via their internal UUID
+		if (!CollectionUtils.isEmpty(nullPidUuids)) {
+			Set<String> uuids = !CollectionUtils.isEmpty(criteria.getUuids()) ? new HashSet<>(criteria.getUuids()) : new HashSet<>();
+			uuids.addAll(nullPidUuids);
+			criteria.setUuids(uuids);
+		}
+
 		criteria.setOwnerIds(ownerIds);
 		return false;
 	}

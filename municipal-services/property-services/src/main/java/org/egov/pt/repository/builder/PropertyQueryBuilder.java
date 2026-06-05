@@ -37,7 +37,9 @@ public class PropertyQueryBuilder {
 	
 	private static String PROEPRTY_AUDIT_QUERY = "select property from {schema}.eg_pt_property_audit where propertyid=?";
 
-	private static String PROEPRTY_ID_QUERY = "select propertyid from {schema}.eg_pt_property where id in (select propertyid from {schema}.eg_pt_owner where userid IN {replace} AND status='ACTIVE')";
+	private static String PROEPRTY_ID_QUERY = "select propertyid from {schema}.eg_pt_property where propertyid IS NOT NULL AND id in (select propertyid from {schema}.eg_pt_owner where userid IN {replace} AND status='ACTIVE')";
+
+	private static String PROPERTY_UUID_NULL_PID_QUERY = "select id from {schema}.eg_pt_property where propertyid IS NULL AND id in (select propertyid from {schema}.eg_pt_owner where userid IN {replace} AND status='ACTIVE')";
 
 	private static String REPLACE_STRING = "{replace}";
 
@@ -453,6 +455,18 @@ public class PropertyQueryBuilder {
 		StringBuilder propertyIdQuery = new StringBuilder(PROEPRTY_ID_QUERY.replace(REPLACE_STRING, query));
 		appendTenantIdToQuery(preparedStmtList, tenantId, propertyIdQuery, "");
 		return propertyIdQuery.toString();
+	}
+
+	public String getPropertyUuidsForNullPidQuery(Set<String> ownerIds, String tenantId, List<Object> preparedStmtList) {
+
+		StringBuilder query = new StringBuilder("(");
+		query.append(createQuery(ownerIds));
+		addToPreparedStatement(preparedStmtList, ownerIds);
+		query.append(")");
+
+		StringBuilder propertyUuidQuery = new StringBuilder(PROPERTY_UUID_NULL_PID_QUERY.replace(REPLACE_STRING, query));
+		appendTenantIdToQuery(preparedStmtList, tenantId, propertyUuidQuery, "");
+		return propertyUuidQuery.toString();
 	}
 
 	private String createQuery(Set<String> ids) {
