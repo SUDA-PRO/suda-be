@@ -39,7 +39,13 @@ public class PropertyQueryBuilder {
 
 	private static String PROEPRTY_ID_QUERY = "select propertyid from {schema}.eg_pt_property where propertyid IS NOT NULL AND id in (select propertyid from {schema}.eg_pt_owner where userid IN {replace} AND status='ACTIVE')";
 
-	private static String PROPERTY_UUID_NULL_PID_QUERY = "select id from {schema}.eg_pt_property where propertyid IS NULL AND id in (select propertyid from {schema}.eg_pt_owner where userid IN {replace} AND status='ACTIVE')";
+	// Returns eg_pt_property.id (internal UUID) for ALL properties (including pre-approval
+	// with null propertyid) owned by the given owner UUIDs. Used by enrichCriteriaFromUser
+	// to build the criteria.uuids set so that the main query uses property.id IN (...)
+	// which correctly handles both approved and INWORKFLOW (null propertyid) properties.
+	private static String ALL_PROPERTY_UUIDS_FOR_OWNER_QUERY =
+			"select id from {schema}.eg_pt_property where id in " +
+			"(select propertyid from {schema}.eg_pt_owner where userid IN {replace} AND status='ACTIVE')";
 
 	private static String REPLACE_STRING = "{replace}";
 
@@ -448,6 +454,22 @@ public class PropertyQueryBuilder {
 		return addPaginationWrapper(builder.toString(), preparedStmtList, criteria);
 	}
 
+	/**
+	 * Returns a query that fetches eg_pt_property.id (internal UUID) for ALL properties
+	 * owned by the given ownerIds, regardless of whether propertyid is null or not.
+	 * This supports searching pre-approval (null propertyid) properties by mobile number.
+	 */
+	public String getAllPropertyUuidsForOwnerQuery(Set<String> ownerIds, String tenantId, List<Object> preparedStmtList) {
+		StringBuilder ownerQuery = new StringBuilder("(");
+		ownerQuery.append(createQuery(ownerIds));
+		addToPreparedStatement(preparedStmtList, ownerIds);
+		ownerQuery.append(")");
+
+		StringBuilder query = new StringBuilder(ALL_PROPERTY_UUIDS_FOR_OWNER_QUERY.replace(REPLACE_STRING, ownerQuery));
+		appendTenantIdToQuery(preparedStmtList, tenantId, query, "");
+		return query.toString();
+	}
+
 	public String getPropertyIdsQuery(Set<String> ownerIds, String tenantId, List<Object> preparedStmtList) {
 
 		StringBuilder query = new StringBuilder("(");
@@ -458,18 +480,6 @@ public class PropertyQueryBuilder {
 		StringBuilder propertyIdQuery = new StringBuilder(PROEPRTY_ID_QUERY.replace(REPLACE_STRING, query));
 		appendTenantIdToQuery(preparedStmtList, tenantId, propertyIdQuery, "");
 		return propertyIdQuery.toString();
-	}
-
-	public String getPropertyUuidsForNullPidQuery(Set<String> ownerIds, String tenantId, List<Object> preparedStmtList) {
-
-		StringBuilder query = new StringBuilder("(");
-		query.append(createQuery(ownerIds));
-		addToPreparedStatement(preparedStmtList, ownerIds);
-		query.append(")");
-
-		StringBuilder propertyUuidQuery = new StringBuilder(PROPERTY_UUID_NULL_PID_QUERY.replace(REPLACE_STRING, query));
-		appendTenantIdToQuery(preparedStmtList, tenantId, propertyUuidQuery, "");
-		return propertyUuidQuery.toString();
 	}
 
 	private String createQuery(Set<String> ids) {

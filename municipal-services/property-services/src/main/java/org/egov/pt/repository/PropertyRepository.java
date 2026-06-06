@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -80,23 +81,6 @@ public class PropertyRepository {
 
 		List<Object> preparedStmtList = new ArrayList<>();
 		String query = queryBuilder.getPropertyIdsQuery(ownerIds, tenantId, preparedStmtList);
-		try {
-			query = centralUtil.replaceSchemaPlaceholder(query, tenantId);
-		} catch (InvalidTenantIdException e) {
-			throw new CustomException("EG_PT_TENANTID_ERROR",
-					"TenantId length is not sufficient to replace query schema in a multi state instance");
-		}
-		return jdbcTemplate.queryForList(query, preparedStmtList.toArray(), String.class);
-	}
-
-	/**
-	 * Returns internal UUIDs of properties that have null propertyId (pre-approval state).
-	 * Used so that mobile-number search also returns applications pending approval.
-	 */
-	public List<String> getPropertyUuidsForNullPid(Set<String> ownerIds, String tenantId) {
-
-		List<Object> preparedStmtList = new ArrayList<>();
-		String query = queryBuilder.getPropertyUuidsForNullPidQuery(ownerIds, tenantId, preparedStmtList);
 		try {
 			query = centralUtil.replaceSchemaPlaceholder(query, tenantId);
 		} catch (InvalidTenantIdException e) {
@@ -270,13 +254,15 @@ public class PropertyRepository {
 		UserSearchRequest userSearchRequest = userService.getBaseUserSearchRequest(userTenant, requestInfo);
 		userSearchRequest.setMobileNumber(criteria.getMobileNumber());
 		userSearchRequest.setName(criteria.getName());
-		userSearchRequest.setUuid(ownerIds);
+		// Only set uuid filter when ownerIds is non-empty; an empty set would be sent
+		// as "uuid":[] to the user service which may return zero results.
+		if (!CollectionUtils.isEmpty(ownerIds))
+			userSearchRequest.setUuid(ownerIds);
 
 		UserDetailResponse userDetailResponse = userService.getUser(userSearchRequest);
 		if (CollectionUtils.isEmpty(userDetailResponse.getUser()))
 			return true;
 
-		// fetching property id from owner table and enriching criteria
 		ownerIds.addAll(userDetailResponse.getUser().stream().map(User::getUuid).collect(Collectors.toSet()));
 
 		if (criteria.getIsCitizen()!=null && criteria.getMobileNumber()!=null) {
@@ -284,49 +270,62 @@ public class PropertyRepository {
 				if (user.getAlternatemobilenumber()!=null && user.getAlternatemobilenumber().equalsIgnoreCase(criteria.getMobileNumber())) {
 					ownerIds.remove(user.getUuid());
 				}
-
 			}
 		}
 
-		// only used to eliminate property-ids which does not have the owner
-		List<String> propertyIds = getPropertyIds(ownerIds, userTenant);
-		// remove nulls — pre-approval properties have null propertyId in DB
-		propertyIds.removeIf(java.util.Objects::isNull);
-
-		// also fetch internal UUIDs for pre-approval properties (null propertyId)
-		List<String> nullPidUuids = getPropertyUuidsForNullPid(ownerIds, userTenant);
-
-		// returning empty list if no property found at all for this user
-		if (CollectionUtils.isEmpty(propertyIds) && CollectionUtils.isEmpty(nullPidUuids)) {
+		if (CollectionUtils.isEmpty(ownerIds))
 			return true;
-		} else if (!CollectionUtils.isEmpty(criteria.getPropertyIds())) {
 
-			// eliminating property Ids not matching with Ids found using user data
-			Set<String> givenIds = criteria.getPropertyIds();
+		if (!CollectionUtils.isEmpty(criteria.getPropertyIds())) {
+			// Caller specified propertyIds: find the approved property business-IDs for this
+			// user and intersect, preserving the original filtering behaviour.
+			List<String> ownedPropertyIds = getPropertyIds(ownerIds, userTenant);
+			ownedPropertyIds.removeIf(Objects::isNull);
 
-			givenIds.forEach(id -> {
-
-				if (!propertyIds.contains(id))
-					givenIds.remove(id);
-			});
-
-			if (CollectionUtils.isEmpty(givenIds))
+			Set<String> filteredPropertyIds = criteria.getPropertyIds().stream()
+					.filter(ownedPropertyIds::contains)
+					.collect(Collectors.toSet());
+			if (CollectionUtils.isEmpty(filteredPropertyIds))
 				return true;
+			criteria.setPropertyIds(filteredPropertyIds);
 		} else {
+			// No caller-specified propertyIds: look up ALL internal property UUIDs for this
+			// user (covers both approved properties and pre-approval/INWORKFLOW properties
+			// that have a null propertyid). The main query uses property.id IN (...) which
+			// correctly matches both cases.
+			List<String> allPropertyUuids = getAllPropertyUuidsForOwner(ownerIds, userTenant);
+			log.info("getAllPropertyUuidsForOwner returned: {}", allPropertyUuids);
 
-			if (!CollectionUtils.isEmpty(propertyIds))
-				criteria.setPropertyIds(Sets.newHashSet(propertyIds));
-		}
+			if (CollectionUtils.isEmpty(allPropertyUuids))
+				return true;
 
-		// include pre-approval properties via their internal UUID
-		if (!CollectionUtils.isEmpty(nullPidUuids)) {
-			Set<String> uuids = !CollectionUtils.isEmpty(criteria.getUuids()) ? new HashSet<>(criteria.getUuids()) : new HashSet<>();
-			uuids.addAll(nullPidUuids);
+			Set<String> uuids = new HashSet<>();
+			if (!CollectionUtils.isEmpty(criteria.getUuids()))
+				uuids.addAll(criteria.getUuids());
+			uuids.addAll(allPropertyUuids);
 			criteria.setUuids(uuids);
 		}
 
 		criteria.setOwnerIds(ownerIds);
 		return false;
+	}
+
+	/**
+	 * Returns the internal eg_pt_property.id (UUID) for all properties owned by any of
+	 * the given owner UUIDs. Includes both approved properties (non-null propertyid) and
+	 * pre-approval/INWORKFLOW properties (null propertyid).
+	 */
+	public List<String> getAllPropertyUuidsForOwner(Set<String> ownerIds, String tenantId) {
+		List<Object> preparedStmtList = new ArrayList<>();
+		String query = queryBuilder.getAllPropertyUuidsForOwnerQuery(ownerIds, tenantId, preparedStmtList);
+		try {
+			query = centralUtil.replaceSchemaPlaceholder(query, tenantId);
+		} catch (InvalidTenantIdException e) {
+			throw new CustomException("EG_PT_TENANTID_ERROR",
+					"TenantId length is not sufficient to replace query schema in a multi state instance");
+		}
+		log.info("getAllPropertyUuidsForOwner query: {} params: {}", query, preparedStmtList);
+		return jdbcTemplate.queryForList(query, preparedStmtList.toArray(), String.class);
 	}
 
 	public Integer getCount(PropertyCriteria propertyCriteria, RequestInfo requestInfo) {

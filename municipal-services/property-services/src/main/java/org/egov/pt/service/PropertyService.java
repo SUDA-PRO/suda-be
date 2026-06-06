@@ -485,9 +485,20 @@ public class PropertyService {
 	public List<Property> searchProperty(PropertyCriteria criteria, RequestInfo requestInfo) {
 
 		List<Property> properties;
+		// Save plaintext PII before encryption — these are needed to search the
+		// user service (which stores plaintext values), and would be lost after
+		// encryptObject scrambles mobileNumber/name in criteria.
+		String plaintextMobileNumber = criteria.getMobileNumber();
+		String plaintextName = criteria.getName();
+
 		/* encrypt here */
 		if(!criteria.getIsRequestForOldDataEncryption())
 			criteria = encryptionDecryptionUtil.encryptObject(criteria, PTConstants.PROPERTY_MODEL, PropertyCriteria.class);
+
+		// Restore plaintext values for user-service lookup inside enrichCriteriaFromUser.
+		// The encrypted values remain in criteria for the property DB query (propertyid LIKE ?).
+		criteria.setMobileNumber(plaintextMobileNumber);
+		criteria.setName(plaintextName);
 
 		/*
 		 * throw error if audit request is with no proeprty id or multiple propertyids
