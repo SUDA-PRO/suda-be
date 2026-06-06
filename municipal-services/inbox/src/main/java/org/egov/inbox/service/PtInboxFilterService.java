@@ -3,15 +3,14 @@ package org.egov.inbox.service;
 import com.jayway.jsonpath.JsonPath;
 import lombok.extern.slf4j.Slf4j;
 import org.egov.common.contract.request.RequestInfo;
+import org.egov.inbox.config.InboxConfiguration;
 import org.egov.inbox.repository.ServiceRequestRepository;
 import org.egov.inbox.web.model.InboxSearchCriteria;
-import org.egov.inbox.web.model.workflow.ProcessInstanceSearchCriteria;
+import org.egov.inbox.web.model.RequestInfoWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
-import org.springframework.util.ObjectUtils;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -43,165 +42,131 @@ public class PtInboxFilterService {
     @Value("${egov.searcher.pt.count.path}")
     private String ptInboxSearcherCountEndpoint;
 
+    // PT service search path is read from service.search.mapping (same as fetchModuleObjects)
+    // so it uses the same correctly-configured Kubernetes URL — no extra @Value needed.
+    private static final String PT_BUSINESS_SERVICE_KEY = "PT.CREATE,PT.MUTATION,PT.UPDATE";
+
     @Autowired
-    private RestTemplate restTemplate;
+    private InboxConfiguration config;
 
     @Autowired
     private ServiceRequestRepository serviceRequestRepository;
 
+    /**
+     * Fetches acknowledgement IDs directly from property-services/_search.
+     * Uses the same searchPath as fetchModuleObjects (from service.search.mapping)
+     * so the URL is guaranteed correct in every environment (local, dev, prod).
+     * isInboxSearch=true bypasses mandatory-criteria validation and also ensures
+     * applications with null propertyId (pre-approval) are NOT filtered out.
+     */
     public List<String> fetchAcknowledgementIdsFromSearcher(InboxSearchCriteria criteria, HashMap<String, String> StatusIdNameMap, RequestInfo requestInfo){
         List<String> acknowledgementNumbers = new ArrayList<>();
         HashMap moduleSearchCriteria = criteria.getModuleSearchCriteria();
-        ProcessInstanceSearchCriteria processCriteria = criteria.getProcessSearchCriteria();
-        Boolean isSearchResultEmpty = false;
-        Boolean isMobileNumberPresent = false;
+
+        Boolean isMobileNumberPresent = moduleSearchCriteria.containsKey(MOBILE_NUMBER_PARAM);
         List<String> userUUIDs = new ArrayList<>();
-        if(moduleSearchCriteria.containsKey(MOBILE_NUMBER_PARAM)){
-            isMobileNumberPresent = true;
-        }
         if(isMobileNumberPresent) {
             String tenantId = criteria.getTenantId();
             String mobileNumber = String.valueOf(moduleSearchCriteria.get(MOBILE_NUMBER_PARAM));
             userUUIDs = fetchUserUUID(mobileNumber, requestInfo, tenantId);
-            Boolean isUserPresentForGivenMobileNumber = CollectionUtils.isEmpty(userUUIDs) ? false : true;
-            isSearchResultEmpty = !isMobileNumberPresent || !isUserPresentForGivenMobileNumber;
-            if(isSearchResultEmpty){
+            if(CollectionUtils.isEmpty(userUUIDs)){
                 return new ArrayList<>();
             }
         }
 
-        if(!isSearchResultEmpty){
-            Object result = null;
+        // Use the same searchPath configured in service.search.mapping for PT
+        // (this is the URL already working in fetchModuleObjects)
+        String ptSearchPath = config.getServiceSearchMapping()
+                .get(PT_BUSINESS_SERVICE_KEY).get("searchPath");
 
-            Map<String, Object> searcherRequest = new HashMap<>();
-            Map<String, Object> searchCriteria = new HashMap<>();
+        StringBuilder uri = new StringBuilder(ptSearchPath);
+        uri.append("?tenantId=").append(criteria.getTenantId());
+        uri.append("&isInboxSearch=true");
+        uri.append("&creationReason=CREATE&creationReason=MUTATION&creationReason=UPDATE");
+        uri.append("&status=INWORKFLOW");
 
-            searchCriteria.put(TENANT_ID_PARAM,criteria.getTenantId());
-            searchCriteria.put(BUSINESS_SERVICE_PARAM, processCriteria.getBusinessService());
-
-            // Accomodating module search criteria in searcher request
-            if(moduleSearchCriteria.containsKey(MOBILE_NUMBER_PARAM) && !CollectionUtils.isEmpty(userUUIDs)){
-                searchCriteria.put(USERID_PARAM, userUUIDs);
-            }
-            if(moduleSearchCriteria.containsKey(LOCALITY_PARAM)){
-                searchCriteria.put(LOCALITY_PARAM, moduleSearchCriteria.get(LOCALITY_PARAM));
-            }
-            if(moduleSearchCriteria.containsKey(PROPERTY_ID_PARAM)){
-                searchCriteria.put(PROPERTY_ID_PARAM, moduleSearchCriteria.get(PROPERTY_ID_PARAM));
-            }
-            if(moduleSearchCriteria.containsKey(PT_APPLICATION_NUMBER_PARAM)) {
-                searchCriteria.put(PT_APPLICATION_NUMBER_PARAM, moduleSearchCriteria.get(PT_APPLICATION_NUMBER_PARAM));
-            }
-
-            // Accomodating process search criteria in searcher request
-            if(!ObjectUtils.isEmpty(processCriteria.getAssignee())){
-                searchCriteria.put(ASSIGNEE_PARAM, processCriteria.getAssignee());
-            }
-            if(!ObjectUtils.isEmpty(processCriteria.getStatus())){
-                searchCriteria.put(STATUS_PARAM, processCriteria.getStatus());
-            }else{
-                if(StatusIdNameMap.values().size() > 0) {
-                    if(CollectionUtils.isEmpty(processCriteria.getStatus())) {
-                        searchCriteria.put(STATUS_PARAM, StatusIdNameMap.keySet());
-                    }
-                }
-            }
-
-            // Paginating searcher results
-            searchCriteria.put(OFFSET_PARAM, criteria.getOffset());
-            searchCriteria.put(NO_OF_RECORDS_PARAM, criteria.getLimit());
-            moduleSearchCriteria.put(LIMIT_PARAM, criteria.getLimit());
-
-            searcherRequest.put(REQUESTINFO_PARAM, requestInfo);
-            searcherRequest.put(SEARCH_CRITERIA_PARAM, searchCriteria);
-
-            StringBuilder uri = new StringBuilder();
-            if(moduleSearchCriteria.containsKey(SORT_ORDER_PARAM) && moduleSearchCriteria.get(SORT_ORDER_PARAM).equals(DESC_PARAM)){
-                uri.append(searcherHost).append(ptInboxSearcherDescEndpoint);
-            }else {
-                uri.append(searcherHost).append(ptInboxSearcherEndpoint);
-            }
-
-            result = restTemplate.postForObject(uri.toString(), searcherRequest, Map.class);
-
-            acknowledgementNumbers = JsonPath.read(result, "$.Properties.*.acknowldgementnumber");
-
+        if(moduleSearchCriteria.containsKey(PROPERTY_ID_PARAM)){
+            uri.append("&propertyIds=").append(moduleSearchCriteria.get(PROPERTY_ID_PARAM));
         }
-        return  acknowledgementNumbers;
+        if(moduleSearchCriteria.containsKey(PT_APPLICATION_NUMBER_PARAM)){
+            uri.append("&acknowledgementIds=").append(moduleSearchCriteria.get(PT_APPLICATION_NUMBER_PARAM));
+        }
+        if(moduleSearchCriteria.containsKey(LOCALITY_PARAM)){
+            uri.append("&locality=").append(moduleSearchCriteria.get(LOCALITY_PARAM));
+        }
+        if(!CollectionUtils.isEmpty(userUUIDs)){
+            userUUIDs.forEach(uuid -> uri.append("&ownerIds=").append(uuid));
+        }
+
+        uri.append("&limit=").append(criteria.getLimit());
+        uri.append("&offset=").append(criteria.getOffset());
+
+        moduleSearchCriteria.put(LIMIT_PARAM, criteria.getLimit());
+
+        log.info("PT inbox acknowledgement IDs fetch URL: {}", uri);
+
+        RequestInfoWrapper requestInfoWrapper = RequestInfoWrapper.builder().requestInfo(requestInfo).build();
+        try {
+            Object result = serviceRequestRepository.fetchResult(uri, requestInfoWrapper);
+            if(result != null){
+                acknowledgementNumbers = JsonPath.read(result, "$.Properties[*].acknowldgementNumber");
+            }
+        } catch (Exception e) {
+            log.error("Error fetching PT acknowledgement IDs from property-services: {}", e.getMessage());
+        }
+        return acknowledgementNumbers;
     }
 
     public Integer fetchAcknowledgementIdsCountFromSearcher(InboxSearchCriteria criteria, HashMap<String, String> StatusIdNameMap, RequestInfo requestInfo){
-        Integer totalCount = 0;
         HashMap moduleSearchCriteria = criteria.getModuleSearchCriteria();
-        ProcessInstanceSearchCriteria processCriteria = criteria.getProcessSearchCriteria();
-        Boolean isSearchResultEmpty = false;
-        Boolean isMobileNumberPresent = false;
+
+        Boolean isMobileNumberPresent = moduleSearchCriteria.containsKey(MOBILE_NUMBER_PARAM);
         List<String> userUUIDs = new ArrayList<>();
-        if(moduleSearchCriteria.containsKey(MOBILE_NUMBER_PARAM)){
-            isMobileNumberPresent = true;
-        }
         if(isMobileNumberPresent) {
             String tenantId = criteria.getTenantId();
             String mobileNumber = String.valueOf(moduleSearchCriteria.get(MOBILE_NUMBER_PARAM));
             userUUIDs = fetchUserUUID(mobileNumber, requestInfo, tenantId);
-            Boolean isUserPresentForGivenMobileNumber = CollectionUtils.isEmpty(userUUIDs) ? false : true;
-            isSearchResultEmpty = !isMobileNumberPresent || !isUserPresentForGivenMobileNumber;
-            if(isSearchResultEmpty){
+            if(CollectionUtils.isEmpty(userUUIDs)){
                 return 0;
             }
         }
 
-        if(!isSearchResultEmpty){
-            Object result = null;
+        String ptSearchPath = config.getServiceSearchMapping()
+                .get(PT_BUSINESS_SERVICE_KEY).get("searchPath");
 
-            Map<String, Object> searcherRequest = new HashMap<>();
-            Map<String, Object> searchCriteria = new HashMap<>();
+        StringBuilder uri = new StringBuilder(ptSearchPath);
+        uri.append("?tenantId=").append(criteria.getTenantId());
+        uri.append("&isInboxSearch=true");
+        uri.append("&isRequestForCount=true");
+        uri.append("&creationReason=CREATE&creationReason=MUTATION&creationReason=UPDATE");
+        uri.append("&status=INWORKFLOW");
 
-            searchCriteria.put(TENANT_ID_PARAM,criteria.getTenantId());
-
-            // Accomodating module search criteria in searcher request
-            if(moduleSearchCriteria.containsKey(MOBILE_NUMBER_PARAM) && !CollectionUtils.isEmpty(userUUIDs)){
-                searchCriteria.put(USERID_PARAM, userUUIDs);
-            }
-            if(moduleSearchCriteria.containsKey(LOCALITY_PARAM)){
-                searchCriteria.put(LOCALITY_PARAM, moduleSearchCriteria.get(LOCALITY_PARAM));
-            }
-            if(moduleSearchCriteria.containsKey(PROPERTY_ID_PARAM)){
-                searchCriteria.put(PROPERTY_ID_PARAM, moduleSearchCriteria.get(PROPERTY_ID_PARAM));
-            }
-            if(moduleSearchCriteria.containsKey(PT_APPLICATION_NUMBER_PARAM)) {
-                searchCriteria.put(PT_APPLICATION_NUMBER_PARAM, moduleSearchCriteria.get(PT_APPLICATION_NUMBER_PARAM));
-            }
-
-            // Accomodating process search criteria in searcher request
-            if(!ObjectUtils.isEmpty(processCriteria.getAssignee())){
-                searchCriteria.put(ASSIGNEE_PARAM, processCriteria.getAssignee());
-            }
-            if(!ObjectUtils.isEmpty(processCriteria.getStatus())){
-                searchCriteria.put(STATUS_PARAM, processCriteria.getStatus());
-            }else{
-                if(StatusIdNameMap.values().size() > 0) {
-                    if(CollectionUtils.isEmpty(processCriteria.getStatus())) {
-                        searchCriteria.put(STATUS_PARAM, StatusIdNameMap.keySet());
-                    }
-                }
-            }
-
-            // Paginating searcher results
-
-            searcherRequest.put(REQUESTINFO_PARAM, requestInfo);
-            searcherRequest.put(SEARCH_CRITERIA_PARAM, searchCriteria);
-
-            StringBuilder uri = new StringBuilder();
-            uri.append(searcherHost).append(ptInboxSearcherCountEndpoint);
-
-            result = restTemplate.postForObject(uri.toString(), searcherRequest, Map.class);
-
-            double count = JsonPath.read(result, "$.TotalCount[0].count");
-            totalCount = new Integer((int) count);
-
+        if(moduleSearchCriteria.containsKey(PROPERTY_ID_PARAM)){
+            uri.append("&propertyIds=").append(moduleSearchCriteria.get(PROPERTY_ID_PARAM));
         }
-        return  totalCount;
+        if(moduleSearchCriteria.containsKey(PT_APPLICATION_NUMBER_PARAM)){
+            uri.append("&acknowledgementIds=").append(moduleSearchCriteria.get(PT_APPLICATION_NUMBER_PARAM));
+        }
+        if(moduleSearchCriteria.containsKey(LOCALITY_PARAM)){
+            uri.append("&locality=").append(moduleSearchCriteria.get(LOCALITY_PARAM));
+        }
+        if(!CollectionUtils.isEmpty(userUUIDs)){
+            userUUIDs.forEach(uuid -> uri.append("&ownerIds=").append(uuid));
+        }
+
+        log.info("PT inbox count fetch URL: {}", uri);
+
+        RequestInfoWrapper requestInfoWrapper = RequestInfoWrapper.builder().requestInfo(requestInfo).build();
+        try {
+            Object result = serviceRequestRepository.fetchResult(uri, requestInfoWrapper);
+            if(result != null){
+                Object countVal = JsonPath.read(result, "$.count");
+                if(countVal != null) return ((Number) countVal).intValue();
+            }
+        } catch (Exception e) {
+            log.error("Error fetching PT count from property-services: {}", e.getMessage());
+        }
+        return 0;
     }
 
 
