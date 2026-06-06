@@ -106,8 +106,17 @@ public class OCService {
 				throw new CustomException(BPAErrorConstants.INVALID_CREATE,
 						"RiksType Computation MDMS does not exists");
 			}
-			Double buildingHeight = (Double) ((List) JsonPath.read(edcrDetail, "$.edcrDetail.*.planDetail.blocks.*.building.buildingHeight")).get(0);
-			Double plotArea = (Double) ((List) JsonPath.read(edcrDetail, "$.edcrDetail.*.planDetail.plot.area")).get(0);
+
+			List buildingHeightList = (List) JsonPath.read(edcrDetail, "$.edcrDetail.*.planDetail.blocks.*.building.buildingHeight");
+			List plotAreaList = (List) JsonPath.read(edcrDetail, "$.edcrDetail.*.planDetail.plot.area");
+
+			if (buildingHeightList == null || buildingHeightList.isEmpty() || plotAreaList == null || plotAreaList.isEmpty()) {
+				log.warn("planDetail not available for eDCR, skipping OC validation for this entry");
+				return;
+			}
+
+			Double buildingHeight = (Double) buildingHeightList.get(0);
+			Double plotArea = (Double) plotAreaList.get(0);
 
 
 
