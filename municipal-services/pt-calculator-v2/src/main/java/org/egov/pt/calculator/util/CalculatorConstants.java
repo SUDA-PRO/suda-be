@@ -47,6 +47,8 @@ public class CalculatorConstants {
 
 	public static final String PT_ADHOC_REBATE = "PT_ADHOC_REBATE";
 
+	public static final String PT_ARREAR = "PT_ARREAR";
+
 //	public static final String PT_DECIMAL_CEILING_CREDIT = "PT_DECIMAL_CEILING_CREDIT";
 	
 //	public static final String PT_DECIMAL_CEILING_DEBIT = "PT_DECIMAL_CEILING_DEBIT";
@@ -70,7 +72,7 @@ public class CalculatorConstants {
 			.asList(PT_OWNER_EXEMPTION, PT_UNIT_USAGE_EXEMPTION ));
 
 	public static final List<String> TAXES_TO_BE_CONSIDERD = Collections.unmodifiableList(Arrays
-			.asList(PT_TAX,PT_OWNER_EXEMPTION, PT_UNIT_USAGE_EXEMPTION ));
+			.asList(PT_TAX, PT_OWNER_EXEMPTION, PT_UNIT_USAGE_EXEMPTION, PT_ARREAR));
 	/*
 	 * these lists has to be updated with every new additional taxes which will be applied on the principle tax(PT_TAX)  
 	 */
