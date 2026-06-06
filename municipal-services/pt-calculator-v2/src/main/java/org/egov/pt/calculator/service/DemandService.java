@@ -293,9 +293,10 @@ public class DemandService {
 					throw new CustomException(CalculatorConstants.EG_PT_INVALID_DEMAND_ERROR,
 							CalculatorConstants.EG_PT_INVALID_DEMAND_ERROR_MSG);
 
-				applytimeBasedApplicables(demand, requestInfoWrapper, timeBasedExmeptionMasterMap,taxPeriods);
-
-				roundOffDecimalForDemand(demand, requestInfoWrapper);
+				if (!isMigratedDemand(demand)) {
+					applytimeBasedApplicables(demand, requestInfoWrapper, timeBasedExmeptionMasterMap, taxPeriods);
+					roundOffDecimalForDemand(demand, requestInfoWrapper);
+				}
 
 				demandsToBeUpdated.add(demand);
 			}
@@ -432,6 +433,22 @@ public class DemandService {
 				.taxPeriodTo(calculation.getToDate()).status(Demand.DemandStatusEnum.ACTIVE)
 				.minimumAmountPayable(BigDecimal.valueOf(configs.getPtMinAmountPayable())).demandDetails(details)
 				.build();
+	}
+
+	/**
+	 * Returns true if the demand was created for legacy migrated data
+	 * (flagged via additionalDetails.isMigratedDemand = true).
+	 * Migrated demands are exempt from system-calculated penalty/interest/rebate.
+	 */
+	private boolean isMigratedDemand(Demand demand) {
+		if (demand.getAdditionalDetails() == null) return false;
+		try {
+			Map<String, Object> additionalDetails = mapper.convertValue(demand.getAdditionalDetails(), Map.class);
+			Object flag = additionalDetails.get("isMigratedDemand");
+			return Boolean.TRUE.equals(flag);
+		} catch (Exception e) {
+			return false;
+		}
 	}
 
 	/**
