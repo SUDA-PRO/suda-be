@@ -20,6 +20,9 @@ import org.egov.inbox.web.model.workflow.ProcessInstanceResponse;
 import org.egov.inbox.web.model.workflow.ProcessInstanceSearchCriteria;
 import org.egov.inbox.web.model.workflow.State;
 import org.egov.tracer.model.CustomException;
+import org.egov.tracer.model.ServiceCallException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -33,6 +36,8 @@ import static org.egov.inbox.util.InboxConstants.CITIZEN;
 
 @Service
 public class WorkflowService {
+
+	private static final Logger log = LoggerFactory.getLogger(WorkflowService.class);
 
 	private InboxConfiguration config;
 
@@ -59,14 +64,18 @@ public class WorkflowService {
 			url = this.buildWorkflowUrl(criteria, url, Boolean.FALSE);
 
 			RequestInfoWrapper requestInfoWrapper = RequestInfoWrapper.builder().requestInfo(requestInfo).build();
-			Object result = serviceRequestRepository.fetchIntResult(url, requestInfoWrapper);
-			Integer response = null;
 			try {
-				response = mapper.convertValue(result, Integer.class);
-			} catch (IllegalArgumentException e) {
-				throw new CustomException(ErrorConstants.PARSING_ERROR, "Failed to parse response of ProcessInstance Count");
+				Object result = serviceRequestRepository.fetchIntResult(url, requestInfoWrapper);
+				Integer response = null;
+				try {
+					response = mapper.convertValue(result, Integer.class);
+				} catch (IllegalArgumentException e) {
+					log.warn("Failed to parse process count for businessService {}, defaulting to 0", businessSrv);
+				}
+				if (response != null) processCount += response;
+			} catch (ServiceCallException e) {
+				log.warn("Workflow _count returned error for businessService {}, defaulting to 0: {}", businessSrv, e.getMessage());
 			}
-			processCount += response;
 		}
 		criteria.setBusinessService(listOfBusinessServices);
 		return processCount;
@@ -83,14 +92,18 @@ public class WorkflowService {
 			url = this.buildWorkflowUrl(criteria, url, Boolean.FALSE);
 
 			RequestInfoWrapper requestInfoWrapper = RequestInfoWrapper.builder().requestInfo(requestInfo).build();
-			Object result = serviceRequestRepository.fetchIntResult(url, requestInfoWrapper);
-			Integer response = null;
 			try {
-				response = mapper.convertValue(result, Integer.class);
-			} catch (IllegalArgumentException e) {
-				throw new CustomException(ErrorConstants.PARSING_ERROR, "Failed to parse response of ProcessInstance Count");
+				Object result = serviceRequestRepository.fetchIntResult(url, requestInfoWrapper);
+				Integer response = null;
+				try {
+					response = mapper.convertValue(result, Integer.class);
+				} catch (IllegalArgumentException e) {
+					log.warn("Failed to parse nearing-SLA count for businessService {}, defaulting to 0", businessSrv);
+				}
+				if (response != null) processCount += response;
+			} catch (ServiceCallException e) {
+				log.warn("Workflow _nearingslacount returned error for businessService {}, defaulting to 0: {}", businessSrv, e.getMessage());
 			}
-			processCount += response;
 		}
 		criteria.setBusinessService(listOfBusinessServices);
 		return processCount;
