@@ -442,8 +442,8 @@ public class RestEdcrApplicationController {
     }
 
     @GetMapping("/downloadfile")
-    public void download(@RequestParam final String fileStoreId, HttpServletResponse response) {
-        fileStoreUtils.writeToHttpResponseStream(fileStoreId, DIGIT_DCR, response);
+    public ResponseEntity<InputStreamResource> download(@RequestParam final String fileStoreId) {
+        return fileStoreUtils.fileAsResponseEntity(fileStoreId, DIGIT_DCR, true);
     }
 
     private ResponseEntity<?> getSuccessResponse(List<EdcrDetail> edcrDetails, RequestInfo requestInfo) {

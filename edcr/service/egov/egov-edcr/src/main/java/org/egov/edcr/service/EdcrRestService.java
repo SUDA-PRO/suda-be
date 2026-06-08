@@ -223,21 +223,12 @@ public class EdcrRestService {
                     : edcrRequest.getRequestInfo().getUserInfo().getId());
             String tenantId = "";
             if (StringUtils.isNotBlank(edcrRequest.getTenantId())) {
-                String[] tenantArr = edcrRequest.getTenantId().split("\\.");
-                String tenantFromReq;
-                if (tenantArr.length == 1)
-                    tenantFromReq = tenantArr[0];
-                else
-                    tenantFromReq = tenantArr[1];
-                if (tenantFromReq.equalsIgnoreCase(ApplicationThreadLocals.getTenantID()))
-                    tenantId = edcrRequest.getTenantId();
-            }
-
-            if (StringUtils.isBlank(tenantId) && edcrRequest.getRequestInfo() != null
+                tenantId = edcrRequest.getTenantId();
+            } else if (edcrRequest.getRequestInfo() != null
                     && edcrRequest.getRequestInfo().getUserInfo() != null
                     && StringUtils.isNotBlank(edcrRequest.getRequestInfo().getUserInfo().getTenantId())) {
                 tenantId = edcrRequest.getRequestInfo().getUserInfo().getTenantId();
-            } else if (StringUtils.isBlank(tenantId)) {
+            } else {
                 tenantId = ApplicationThreadLocals.getTenantID();
             }
             edcrApplication.setThirdPartyUserTenant(tenantId);
@@ -421,10 +412,15 @@ public class EdcrRestService {
             edcrDetail.setPlanReport(
                     format(getFileDownloadUrl(edcrApplnDtl.getReportOutputId().getFileStoreId(), tenantId)));
 
-        File file = edcrApplnDtl.getPlanDetailFileStore() != null
-                ? fileStoreService.fetch(edcrApplnDtl.getPlanDetailFileStore().getFileStoreId(),
-                        DcrConstants.APPLICATION_MODULE_TYPE, tenantId)
-                : null;
+        File file = null;
+        if (edcrApplnDtl.getPlanDetailFileStore() != null) {
+            try {
+                file = fileStoreService.fetch(edcrApplnDtl.getPlanDetailFileStore().getFileStoreId(),
+                        DcrConstants.APPLICATION_MODULE_TYPE, tenantId);
+            } catch (Exception e) {
+                LOG.warn("Plan detail file not found in filestore, proceeding without plan details: " + e.getMessage());
+            }
+        }
 
         if (LOG.isInfoEnabled())
             LOG.info("**************** End - Reading Plan detail file **************" + file);
@@ -953,8 +949,7 @@ public class EdcrRestService {
         if (StringUtils.isBlank(dcrNo)) {
             errorDetails.add(new ErrorDetail("BPA-29", "Comparison eDcr number is mandatory"));
         } else {
-            EdcrApplicationDetail permitDcr = applicationDetailService.findByDcrNumberAndTPUserTenant(dcrNo,
-                    edcrRequest.getTenantId());
+            EdcrApplicationDetail permitDcr = applicationDetailService.findByDcrNumber(dcrNo);
 
             if (permitDcr != null && permitDcr.getApplication() != null
                     && StringUtils.isBlank(permitDcr.getApplication().getServiceType())) {

@@ -128,6 +128,13 @@ public final class WebUtils {
                 String hostName = host.toString().split(",")[0];
                 domainURL = new StringBuilder().append(proto).append(SCHEME_DOMAIN_SEPARATOR).append(hostName).toString();
                 LOG.info("Domain URL*******" + domainURL);
+            } else {
+                // Direct internal k8s call (no Nginx proxy headers) — fall back to request URL
+                String uri = httpRequest.getRequestURI();
+                domainURL = withContext
+                        ? url.substring(0, url.length() - uri.length() + httpRequest.getContextPath().length()) + FORWARD_SLASH
+                        : url.substring(0, url.length() - uri.length());
+                LOG.info("Domain URL (internal fallback)*******" + domainURL);
             }
         } else {
             String uri = httpRequest.getRequestURI();

@@ -956,9 +956,20 @@ public class HeightOfRoom extends FeatureProcess {
 			buildResult(pl, floor, minimumHeight, RULE_4_4_4_I, RULE_REGULAR_DESC, minHeight, valid, typicalFloorValues);
 
 		} else {
-			String layerName = String.format(LAYER_ROOM_HEIGHT, block.getNumber(), floor.getNumber(), REGULAR_ROOM);
-			errors.put(layerName, ROOM_HEIGHT_NOTDEFINED + layerName);
-			pl.addErrors(errors);
+			// Room height MTEXT not annotated on the layer — record as Verify (advisory)
+			// instead of a blocking error, since floor-level height is already validated.
+			boolean isTypicalRepititiveFloor = false;
+			Map<String, Object> typicalFloorValues = ProcessHelper.getTypicalFloorValues(block, floor,
+					isTypicalRepititiveFloor);
+			if (!(Boolean) typicalFloorValues.get(IS_TYPICAL_REP_FLOOR)) {
+				String value = typicalFloorValues.get(TYPICAL_FLOOR) != null
+						? (String) typicalFloorValues.get(TYPICAL_FLOOR)
+						: FLOOR_SPACED + floor.getNumber();
+				setReportOutputDetails(pl, RULE_4_4_4_I, RULE_REGULAR_DESC, value, EMPTY_STRING,
+						MINIMUM_HEIGHT_2_75 + DcrConstants.IN_METER,
+						ROOM_HEIGHT_NOTDEFINED + String.format(LAYER_ROOM_HEIGHT, block.getNumber(), floor.getNumber(), REGULAR_ROOM),
+						Result.Verify.getResultVal(), scrutinyDetail);
+			}
 		}
 	}
 

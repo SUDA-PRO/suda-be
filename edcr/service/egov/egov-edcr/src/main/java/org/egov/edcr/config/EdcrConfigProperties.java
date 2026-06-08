@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class EdcrConfigProperties {
 
-    @Value("${edcr.default.state:pg}")
+    @Value("${edcr.default.state:cg}")
     private String defaultState;
 
     @Value("${edcr.default.isStateWise:false}")

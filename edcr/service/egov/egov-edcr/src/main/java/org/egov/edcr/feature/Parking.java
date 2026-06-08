@@ -231,7 +231,14 @@ public class Parking extends FeatureProcess {
         BigDecimal roundedVisitorParkingArea = Util.roundOffTwoDecimal(providedVisitorParkArea);
 
         if (parkingAreas.getTotal().doubleValue() == 0) {
-            pl.addError(RULE__DESCRIPTION, getLocaleMessage("msg.error.not.defined", RULE__DESCRIPTION));
+            if (ruleResult.noOfRequiredParking > 0) {
+                pl.addError(RULE__DESCRIPTION, getLocaleMessage("msg.error.not.defined", RULE__DESCRIPTION));
+            } else {
+                // MDMS requires 0 parking for this plot size/risk type — no parking needed, accepted
+                setReportOutputDetails1(pl, FOUR_P_TWO_P_ONE, PARKING_STRING,
+                        ruleResult.noOfRequiredParking + ECS_STRING + PLOTAREA_STRING + plotArea + CLOSING_BRACKET,
+                        "0" + ECS_STRING, Result.Accepted.getResultVal());
+            }
         } else if (requiredCarParkArea > 0 && totalProvidedCarParkingArea.compareTo(requiredCarParkingArea) < 0) {
             setReportOutputDetails1(pl, FOUR_P_TWO_P_ONE, PARKING_STRING,
                     ruleResult.noOfRequiredParking + ECS_STRING + PLOTAREA_STRING + plotArea + CLOSING_BRACKET,
