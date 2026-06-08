@@ -79,6 +79,23 @@ public class MdmsService {
         return cityCode;
     }
 
+    public String getDistrict(RequestInfo requestInfo, IdRequest idRequest) {
+        Map<String, String> result = doMdmsServiceCall(requestInfo, idRequest);
+        String districtCode = null;
+        try {
+            if (result != null) {
+                districtCode = result.get("districtCode");
+            }
+            if (districtCode == null) {
+                throw new CustomException("PARSING ERROR", "District code is Null/not valid");
+            }
+        } catch (Exception e) {
+            log.error("Error occurred while fetching district code", e);
+            throw new CustomException("PARSING ERROR", "Failed to get district code from MDMS");
+        }
+        return districtCode;
+    }
+
     /**
      * Description : This method to get IdFormat from Mdms
      *
@@ -117,6 +134,7 @@ public class MdmsService {
 
         String idFormatFromMdms = null;
         String cityCodeFromMdms = null;
+        String districtCodeFromMdms = null;
 
 
         Map<String, List<MasterDetail>> masterDetails = new HashMap<String, List<MasterDetail>>();
@@ -151,6 +169,8 @@ public class MdmsService {
 
                 cityCodeFromMdms = documentContext.read("$.city.code");
                 log.debug("Found city code as - " + cityCodeFromMdms);
+                districtCodeFromMdms = documentContext.read("$.city.districtCode");
+                log.debug("Found district code as - " + districtCodeFromMdms);
             }
             if (mdmsResponse.getMdmsRes() != null && mdmsResponse.getMdmsRes().containsKey(formatModule)
                     && mdmsResponse.getMdmsRes().get(formatModule).containsKey(formatMaster)
@@ -169,6 +189,7 @@ public class MdmsService {
         Map<String, String> mdmsCallMap = new HashMap();
         mdmsCallMap.put(formatMaster, idFormatFromMdms);
         mdmsCallMap.put(tenantMaster, cityCodeFromMdms);
+        mdmsCallMap.put("districtCode", districtCodeFromMdms);
 
         return mdmsCallMap;
     }

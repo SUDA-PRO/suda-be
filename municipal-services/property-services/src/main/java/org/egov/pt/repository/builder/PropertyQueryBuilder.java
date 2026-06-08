@@ -37,13 +37,24 @@ public class PropertyQueryBuilder {
 	
 	private static String PROEPRTY_AUDIT_QUERY = "select property from {schema}.eg_pt_property_audit where propertyid=?";
 
-	private static String PROEPRTY_ID_QUERY = "select propertyid from {schema}.eg_pt_property where id in (select propertyid from {schema}.eg_pt_owner where userid IN {replace} AND status='ACTIVE')";
+	private static String PROEPRTY_ID_QUERY = "select propertyid from {schema}.eg_pt_property where propertyid IS NOT NULL AND id in (select propertyid from {schema}.eg_pt_owner where userid IN {replace} AND status='ACTIVE')";
+
+	// Returns eg_pt_property.id (internal UUID) for ALL properties (including pre-approval
+	// with null propertyid) owned by the given owner UUIDs. Used by enrichCriteriaFromUser
+	// to build the criteria.uuids set so that the main query uses property.id IN (...)
+	// which correctly handles both approved and INWORKFLOW (null propertyid) properties.
+	private static String ALL_PROPERTY_UUIDS_FOR_OWNER_QUERY =
+			"select id from {schema}.eg_pt_property where id in " +
+			"(select propertyid from {schema}.eg_pt_owner where userid IN {replace} AND status='ACTIVE')";
 
 	private static String REPLACE_STRING = "{replace}";
 
+	// COALESCE(propertyid, pid) is used as the dedup key so that pre-approval
+	// properties (propertyid IS NULL) are not silently dropped — NULL=NULL is
+	// false in SQL and would exclude them from the INNER JOIN result.
 	private static String WITH_CLAUSE_QUERY = " WITH propertyresult AS ({replace}) SELECT * FROM propertyresult "
-			+ "INNER JOIN (SELECT propertyid, min(statusorder) as minorder FROM propertyresult GROUP BY propertyid) as minresult "
-			+ "ON minresult.propertyid=propertyresult.propertyid AND minresult.minorder=propertyresult.statusorder";
+			+ "INNER JOIN (SELECT COALESCE(propertyid, pid) as dedup_key, min(statusorder) as minorder FROM propertyresult GROUP BY COALESCE(propertyid, pid)) as minresult "
+			+ "ON minresult.dedup_key=COALESCE(propertyresult.propertyid, propertyresult.pid) AND minresult.minorder=propertyresult.statusorder";
 
 
 	// Select query
@@ -441,6 +452,22 @@ public class PropertyQueryBuilder {
 			addToPreparedStatement(preparedStmtList, uuids);
 		}
 		return addPaginationWrapper(builder.toString(), preparedStmtList, criteria);
+	}
+
+	/**
+	 * Returns a query that fetches eg_pt_property.id (internal UUID) for ALL properties
+	 * owned by the given ownerIds, regardless of whether propertyid is null or not.
+	 * This supports searching pre-approval (null propertyid) properties by mobile number.
+	 */
+	public String getAllPropertyUuidsForOwnerQuery(Set<String> ownerIds, String tenantId, List<Object> preparedStmtList) {
+		StringBuilder ownerQuery = new StringBuilder("(");
+		ownerQuery.append(createQuery(ownerIds));
+		addToPreparedStatement(preparedStmtList, ownerIds);
+		ownerQuery.append(")");
+
+		StringBuilder query = new StringBuilder(ALL_PROPERTY_UUIDS_FOR_OWNER_QUERY.replace(REPLACE_STRING, ownerQuery));
+		appendTenantIdToQuery(preparedStmtList, tenantId, query, "");
+		return query.toString();
 	}
 
 	public String getPropertyIdsQuery(Set<String> ownerIds, String tenantId, List<Object> preparedStmtList) {

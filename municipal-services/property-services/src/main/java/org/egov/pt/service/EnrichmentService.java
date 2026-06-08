@@ -156,8 +156,12 @@ public class EnrichmentService {
 
 
     /**
-	 * Sets the acknowledgement and assessment Numbers for given PropertyRequest
-	 * 
+	 * Sets the acknowledgement number for given PropertyRequest.
+	 *
+	 * Property ID generation is deferred to approval time when workflow is enabled
+	 * (except for DATA_UPLOAD which bypasses workflow and goes directly to ACTIVE).
+	 * When workflow is disabled, property ID is also generated here immediately.
+	 *
 	 * @param request PropertyRequest which is to be created
 	 */
 	private void setIdgenIds(PropertyRequest request) {
@@ -166,14 +170,23 @@ public class EnrichmentService {
 		String tenantId = property.getTenantId();
 		RequestInfo requestInfo = request.getRequestInfo();
 
-		if (!config.getIsWorkflowEnabled()) {
+		boolean isWorkflowEnabled = config.getIsWorkflowEnabled();
+		boolean isDataUpload = org.egov.pt.models.enums.CreationReason.DATA_UPLOAD.equals(property.getCreationReason());
 
+		if (!isWorkflowEnabled) {
 			property.setStatus(Status.ACTIVE);
 		}
-		
-		String pId = propertyutil.getIdList(requestInfo, tenantId, config.getPropertyIdGenName(), config.getPropertyIdGenFormat(), 1).get(0);
+
+		// Generate Property ID immediately only when the property reaches ACTIVE status
+		// right away: either workflow is disabled, or it is a DATA_UPLOAD (bypasses workflow).
+		// For all other workflow-enabled flows the Property ID is generated in
+		// WorkflowService.updateWorkflow() when the application status transitions to ACTIVE.
+		if (!isWorkflowEnabled || isDataUpload) {
+			String pId = propertyutil.getIdList(requestInfo, tenantId, config.getPropertyIdGenName(), config.getPropertyIdGenFormat(), 1).get(0);
+			property.setPropertyId(pId);
+		}
+
 		String ackNo = propertyutil.getIdList(requestInfo, tenantId, config.getAckIdGenName(), config.getAckIdGenFormat(), 1).get(0);
-		property.setPropertyId(pId);
 		property.setAcknowldgementNumber(ackNo);
 	}
 
@@ -209,7 +222,6 @@ public class EnrichmentService {
      * @param request
      */
 	public void enrichMutationRequest(PropertyRequest request, Property propertyFromSearch) {
-
 		RequestInfo requestInfo = request.getRequestInfo();
 		Property property = request.getProperty();
 		Boolean isWfEnabled = config.getIsMutationWorkflowEnabled();
@@ -312,28 +324,28 @@ public class EnrichmentService {
      * In case of SENDBACKTOCITIZEN enrich the assignee with the owners and creator of property
      * @param property to be enriched
      */
-    public void enrichAssignes(Property property){
+    public void enrichAssignes(Property property) {
 
-            if(config.getIsWorkflowEnabled() && property.getWorkflow().getAction().equalsIgnoreCase(PTConstants.CITIZEN_SENDBACK_ACTION)){
+		if(config.getIsWorkflowEnabled() && property.getWorkflow().getAction().equalsIgnoreCase(PTConstants.CITIZEN_SENDBACK_ACTION)) {
 
-                    List<OwnerInfo> assignes = new LinkedList<>();
+				List<OwnerInfo> assignes = new LinkedList<>();
 
-                    // Adding owners to assignes list
-                    property.getOwners().forEach(ownerInfo -> {
-                       assignes.add(ownerInfo);
-                    });
+				// Adding owners to assignes list
+				property.getOwners().forEach(ownerInfo -> {
+					assignes.add(ownerInfo);
+				});
 
-                    // Adding creator of application
-                    if(property.getAccountId()!=null)
-                        assignes.add(OwnerInfo.builder().uuid(property.getAccountId()).build());
+				// Adding creator of application
+				if(property.getAccountId()!=null)
+					assignes.add(OwnerInfo.builder().uuid(property.getAccountId()).build());
 
-					Set<OwnerInfo> registeredUsers = userService.getUUidFromUserName(property);
+				Set<OwnerInfo> registeredUsers = userService.getUUidFromUserName(property);
 
-					if(!CollectionUtils.isEmpty(registeredUsers))
-						assignes.addAll(registeredUsers);
+				if(!CollectionUtils.isEmpty(registeredUsers))
+					assignes.addAll(registeredUsers);
 
-                    property.getWorkflow().setAssignes(assignes);
-            }
+				property.getWorkflow().setAssignes(assignes);
+		}
     }
 
 

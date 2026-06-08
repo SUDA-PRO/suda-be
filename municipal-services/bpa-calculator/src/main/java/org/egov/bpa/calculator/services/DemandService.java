@@ -240,7 +240,18 @@ public class DemandService {
             String tenantId = calculation.getTenantId();
             String consumerCode = calculation.getBpa().getApplicationNo();
 
-            User owner = bpa.getLandInfo().getOwners().get(0).toCommonUser();
+            User owner;
+            if (bpa.getLandInfo() != null && bpa.getLandInfo().getOwners() != null
+                    && !bpa.getLandInfo().getOwners().isEmpty()) {
+                owner = bpa.getLandInfo().getOwners().get(0).toCommonUser();
+            } else if (bpa.getAccountId() != null) {
+                // landInfo is null (e.g. OC BPA update by employee) — use the citizen
+                // accountId as demand payer to avoid EG_BS_EMPLOYEE_UUID_NOTALLOWED
+                owner = new User();
+                owner.setUuid(bpa.getAccountId());
+            } else {
+                owner = requestInfo.getUserInfo();
+            }
 
             List<DemandDetail> demandDetails = new LinkedList<>();
 
