@@ -6,7 +6,7 @@ import org.egov.common.contract.request.RequestInfo;
 import org.egov.inbox.config.InboxConfiguration;
 import org.egov.inbox.repository.ServiceRequestRepository;
 import org.egov.inbox.web.model.InboxSearchCriteria;
-import org.egov.inbox.web.model.workflow.RequestInfoWrapper;
+import org.egov.inbox.web.model.RequestInfoWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
