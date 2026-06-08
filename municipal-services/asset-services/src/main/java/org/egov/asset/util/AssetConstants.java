@@ -23,10 +23,10 @@ public class AssetConstants {
 
 
     // mdms master names
-    public static final String ASSET_CLASSIFICATION = "AssetClassification";
-    public static final String ASSET_PARENT_CATEGORY = "AssetParentCategory";
-    public static final String ASSET_CATEGORY = "AssetCategory";
-    public static final String ASSET_SUB_CATEGORY = "AssetSubCategory";
+    public static final String ASSET_CLASSIFICATION = "assetClassification";
+    public static final String ASSET_PARENT_CATEGORY = "assetParentCategory";
+    public static final String ASSET_CATEGORY = "assetCategory";
+    public static final String ASSET_SUB_CATEGORY = "assetSubCategory";
 
 
 
