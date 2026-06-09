@@ -390,10 +390,11 @@ public class InboxService {
 			Boolean isSearchResultEmpty = false;
 			List<String> businessKeys = new ArrayList<>();
 			if (!ObjectUtils.isEmpty(processCriteria.getModuleName()) && processCriteria.getModuleName().equals(PT)) {
+				String ptSearchPath = srvMap != null ? srvMap.get("searchPath") : null;
 				totalCount = ptInboxFilterService.fetchAcknowledgementIdsCountFromSearcher(criteria, StatusIdNameMap,
-						requestInfo);
+						requestInfo, ptSearchPath);
 				List<String> acknowledgementNumbers = ptInboxFilterService.fetchAcknowledgementIdsFromSearcher(criteria,
-						StatusIdNameMap, requestInfo);
+						StatusIdNameMap, requestInfo, ptSearchPath);
 				if (!CollectionUtils.isEmpty(acknowledgementNumbers)) {
 					moduleSearchCriteria.put(ACKNOWLEDGEMENT_IDS_PARAM, acknowledgementNumbers);
 					businessKeys.addAll(acknowledgementNumbers);

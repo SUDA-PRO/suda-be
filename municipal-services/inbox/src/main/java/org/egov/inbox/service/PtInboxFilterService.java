@@ -58,8 +58,10 @@ public class PtInboxFilterService {
      * so the URL is guaranteed correct in every environment (local, dev, prod).
      * isInboxSearch=true bypasses mandatory-criteria validation and also ensures
      * applications with null propertyId (pre-approval) are NOT filtered out.
+     *
+     * @param ptSearchPath the property-services search URL resolved by InboxService via srvMap
      */
-    public List<String> fetchAcknowledgementIdsFromSearcher(InboxSearchCriteria criteria, HashMap<String, String> StatusIdNameMap, RequestInfo requestInfo){
+    public List<String> fetchAcknowledgementIdsFromSearcher(InboxSearchCriteria criteria, HashMap<String, String> StatusIdNameMap, RequestInfo requestInfo, String ptSearchPath){
         List<String> acknowledgementNumbers = new ArrayList<>();
         HashMap moduleSearchCriteria = criteria.getModuleSearchCriteria();
 
@@ -74,11 +76,10 @@ public class PtInboxFilterService {
             }
         }
 
-        // Use the same searchPath configured in service.search.mapping for PT
-        // (this is the URL already working in fetchModuleObjects)
-        String ptSearchPath = config.getServiceSearchMapping()
-                .get(PT_BUSINESS_SERVICE_KEY).get("searchPath");
-
+        if (ptSearchPath == null) {
+            log.error("PT service searchPath is not configured. Cannot fetch acknowledgement IDs.");
+            return new ArrayList<>();
+        }
         StringBuilder uri = new StringBuilder(ptSearchPath);
         uri.append("?tenantId=").append(criteria.getTenantId());
         uri.append("&isInboxSearch=true");
@@ -117,7 +118,7 @@ public class PtInboxFilterService {
         return acknowledgementNumbers;
     }
 
-    public Integer fetchAcknowledgementIdsCountFromSearcher(InboxSearchCriteria criteria, HashMap<String, String> StatusIdNameMap, RequestInfo requestInfo){
+    public Integer fetchAcknowledgementIdsCountFromSearcher(InboxSearchCriteria criteria, HashMap<String, String> StatusIdNameMap, RequestInfo requestInfo, String ptSearchPath){
         HashMap moduleSearchCriteria = criteria.getModuleSearchCriteria();
 
         Boolean isMobileNumberPresent = moduleSearchCriteria.containsKey(MOBILE_NUMBER_PARAM);
@@ -131,9 +132,10 @@ public class PtInboxFilterService {
             }
         }
 
-        String ptSearchPath = config.getServiceSearchMapping()
-                .get(PT_BUSINESS_SERVICE_KEY).get("searchPath");
-
+        if (ptSearchPath == null) {
+            log.error("PT service searchPath is not configured. Cannot fetch count.");
+            return 0;
+        }
         StringBuilder uri = new StringBuilder(ptSearchPath);
         uri.append("?tenantId=").append(criteria.getTenantId());
         uri.append("&isInboxSearch=true");
