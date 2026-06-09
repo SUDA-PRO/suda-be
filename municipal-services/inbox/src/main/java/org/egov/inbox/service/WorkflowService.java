@@ -139,12 +139,19 @@ public class WorkflowService {
                     criteria.setBusinessService(inputBusinessSrvs);
                 } else {
                     RequestInfoWrapper requestInfoWrapper = RequestInfoWrapper.builder().requestInfo(requestInfo).build();
-                    if (finalResponse == null) {
-                        finalResponse = (List<HashMap<String, Object>>) serviceRequestRepository.fetchListResult(url,
-                                requestInfoWrapper);
-                    } else {
-                        finalResponse.addAll(
-                                (List<HashMap<String, Object>>) serviceRequestRepository.fetchListResult(url, requestInfoWrapper));
+                    List<HashMap<String, Object>> iterResult;
+                    try {
+                        iterResult = (List<HashMap<String, Object>>) serviceRequestRepository.fetchListResult(url, requestInfoWrapper);
+                    } catch (Exception e) {
+                        log.warn("Workflow _statuscount returned error for businessService {}, skipping: {}", businessSrv, e.getMessage());
+                        iterResult = null;
+                    }
+                    if (iterResult != null) {
+                        if (finalResponse == null) {
+                            finalResponse = iterResult;
+                        } else {
+                            finalResponse.addAll(iterResult);
+                        }
                     }
                 }
             }
@@ -189,6 +196,10 @@ public class WorkflowService {
 			response = mapper.convertValue(result, BusinessServiceResponse.class);
 		} catch (IllegalArgumentException e) {
 			throw new CustomException(ErrorConstants.PARSING_ERROR, "Failed to parse response of Workflow");
+		}
+		if (response == null || CollectionUtils.isEmpty(response.getBusinessServices())) {
+			throw new CustomException("WORKFLOW_BUSINESSSERVICE_NOT_FOUND",
+					"Business service not found for: " + businessServceName);
 		}
 		return response.getBusinessServices().get(0);
 	}

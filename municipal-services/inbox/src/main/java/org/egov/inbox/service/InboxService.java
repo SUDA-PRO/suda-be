@@ -1159,6 +1159,7 @@ public class InboxService {
 			// log.info("removeStatusCountMap:: "+ new Gson().toJson(statusCountMap));
 
 		}
+		if (statusCountMap == null) statusCountMap = new ArrayList<>();
 		log.info("statusCountMap size :::: " + statusCountMap.size());
 
 		response.setTotalCount(totalCount);
