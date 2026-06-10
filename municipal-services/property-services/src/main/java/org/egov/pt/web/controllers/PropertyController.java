@@ -22,6 +22,7 @@ import org.egov.pt.web.contracts.PropertyResponse;
 import org.egov.pt.web.contracts.RequestInfoWrapper;
 import org.egov.tracer.model.CustomException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.CollectionUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -62,7 +63,7 @@ public class PropertyController {
 
         for(OwnerInfo owner:propertyRequest.getProperty().getOwners())
         {
-            if(!owner.getOwnerType().equals("NONE"))
+            if(!owner.getOwnerType().equals("NONE") && !CollectionUtils.isEmpty(owner.getDocuments()))
             {
                 for(Document document:owner.getDocuments())
                     if(document.getDocumentType().contains("OWNER.SPECIALCATEGORYPROOF"))
@@ -93,7 +94,7 @@ public class PropertyController {
 
         for(OwnerInfo owner:propertyRequest.getProperty().getOwners())
         {
-            if(!owner.getOwnerType().equals("NONE"))
+            if(!owner.getOwnerType().equals("NONE") && !CollectionUtils.isEmpty(owner.getDocuments()))
             {
                 for(Document document:owner.getDocuments())
                     if(document.getDocumentType().contains("OWNER.SPECIALCATEGORYPROOF"))
