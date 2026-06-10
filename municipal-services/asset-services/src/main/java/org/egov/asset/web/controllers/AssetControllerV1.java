@@ -12,6 +12,7 @@ import org.egov.asset.web.models.*;
 import org.egov.asset.web.models.calcontract.*;
 import org.egov.asset.web.models.disposal.AssetDisposalRequest;
 import org.egov.asset.web.models.disposal.AssetDisposalResponse;
+import org.egov.tracer.model.CustomException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -120,6 +121,10 @@ public class AssetControllerV1 {
             @Parameter(description = "Details for updating existing assets + RequestInfo metadata.", required = true) @Valid @RequestBody AssetRequest assetRequest) {
 
         CalculationRes apiresponse = assetCalculationClient.triggerDepreciationCalculation(assetRequest);
+        if (apiresponse == null) {
+            throw new CustomException("CALCULATOR_SERVICE_ERROR",
+                    "No response received from asset-calculator while processing depreciation");
+        }
         log.info("Depreciaiton api response : {}", apiresponse.getMessage());
 //        List<AssetDTO> assets = new ArrayList<AssetDTO>();
 //        assets.add(assetRequest.getAsset());

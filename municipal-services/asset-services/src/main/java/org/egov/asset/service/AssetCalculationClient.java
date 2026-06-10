@@ -9,6 +9,7 @@ import org.egov.asset.web.models.calcontract.CalculationReq;
 import org.egov.asset.web.models.calcontract.CalculationRes;
 import org.egov.asset.web.models.calcontract.CalulationCriteria;
 import org.egov.asset.web.models.calcontract.DepreciationRes;
+import org.egov.tracer.model.CustomException;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -29,7 +30,10 @@ public class AssetCalculationClient {
     }
 
     public CalculationRes triggerDepreciationCalculation(AssetRequest assetRequest) {
-        StringBuilder uri = new StringBuilder(config.getAssetCalculatorServiceHost()+config.getAssetCalculatorDepreciationApi());
+        StringBuilder uri = new StringBuilder(buildAbsoluteUrl(
+            config.getAssetCalculatorServiceHost(),
+            config.getAssetCalculatorDepreciationApi()
+        ));
         log.info("URI to calculate depreciation is : {}", uri);
         // Prepare request payload
         CalculationReq calculationReq = new CalculationReq();
@@ -39,6 +43,10 @@ public class AssetCalculationClient {
         calculationReq.getCalulationCriteria().setAssetId(assetRequest.getAsset().getId());
 
         Object rawResponse = apiClient.fetchResult(uri, calculationReq);
+        if (rawResponse == null) {
+            throw new CustomException("CALCULATOR_SERVICE_ERROR",
+                "No response received from asset-calculator while processing depreciation");
+        }
         ObjectMapper objectMapper = new ObjectMapper();
 
         // Convert raw response to CalculationRes
@@ -50,9 +58,10 @@ public class AssetCalculationClient {
     }
 
     public DepreciationRes getAssetDepreciationList(String tenantId, String assetId) {
-        String assetCalculatorHost = config.getAssetCalculatorServiceHost();
-        String depreciationDetailsApi = config.getAssetCalculatorDepreciationListApi();
-        StringBuilder uri = new StringBuilder(assetCalculatorHost + depreciationDetailsApi);
+        StringBuilder uri = new StringBuilder(buildAbsoluteUrl(
+                config.getAssetCalculatorServiceHost(),
+                config.getAssetCalculatorDepreciationListApi()
+        ));
         log.info("URI to fetch list is {}", uri);
         // Define path parameters using HashMap
         Map<String, String> pathParams = new HashMap<>();
@@ -60,5 +69,29 @@ public class AssetCalculationClient {
         // Call API and get response
         return apiClient.fetchResultWithPathParams(uri, pathParams, DepreciationRes.class);
 
+    }
+
+    private String buildAbsoluteUrl(String host, String path) {
+        String normalizedHost = Optional.ofNullable(host).orElse("").trim();
+        String normalizedPath = Optional.ofNullable(path).orElse("").trim();
+
+        if (normalizedHost.isEmpty()) {
+            throw new CustomException("CALCULATOR_SERVICE_CONFIG_ERROR",
+                    "asset.calculator.service.host is not configured");
+        }
+
+        if (!normalizedHost.matches("^[a-zA-Z][a-zA-Z0-9+.-]*://.*")) {
+            normalizedHost = "http://" + normalizedHost;
+        }
+
+        if (!normalizedHost.endsWith("/") && !normalizedPath.startsWith("/")) {
+            return normalizedHost + "/" + normalizedPath;
+        }
+
+        if (normalizedHost.endsWith("/") && normalizedPath.startsWith("/")) {
+            return normalizedHost + normalizedPath.substring(1);
+        }
+
+        return normalizedHost + normalizedPath;
     }
 }
