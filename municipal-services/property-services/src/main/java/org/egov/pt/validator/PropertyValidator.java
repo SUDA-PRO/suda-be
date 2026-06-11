@@ -170,13 +170,16 @@ public class PropertyValidator {
 		
 		if (configs.getIsWorkflowEnabled()) {
 
-			if (request.getProperty().getWorkflow() == null)
+			boolean isDataUpload = org.egov.pt.models.enums.CreationReason.DATA_UPLOAD.equals(property.getCreationReason());
+
+			if (!isDataUpload && request.getProperty().getWorkflow() == null)
 				throw new CustomException("EG_PT_UPDATE_WF_ERROR", "Workflow information is mandatory for update process");
-			
-			/*
-			 * update and mutation open state are same currently - Creation reason will change for begining of a workflow
-			 */
-			if (property.getWorkflow().getAction().equalsIgnoreCase(configs.getMutationOpenState())
+
+			if (isDataUpload) {
+				// DATA_UPLOAD bypasses workflow — treat as directly updatable
+				isstateUpdatable = true;
+				fieldsUpdated.remove("creationReason");
+			} else if (property.getWorkflow().getAction().equalsIgnoreCase(configs.getMutationOpenState())
 					&& propertyFromSearch.getStatus().equals(Status.ACTIVE)) {
 				fieldsUpdated.remove("creationReason");
 				isstateUpdatable = true;
