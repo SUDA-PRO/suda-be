@@ -104,6 +104,12 @@ public class UserService {
     @Value("${user.address.mandatory.fields.enabled}")
     private boolean addressMandatoryFieldsEnabled;
 
+    @Value("${otp.validation.fixed.value:}")
+    private String otpFixedValue;
+
+    @Value("${otp.validation.fixed.enabled:false}")
+    private boolean otpFixedEnabled;
+
     @Autowired
     private RestTemplate restTemplate;
 
@@ -479,6 +485,11 @@ public class UserService {
      * @return
      */
     public Boolean validateOtp(User user) {
+        if (otpFixedEnabled && otpFixedValue != null && !otpFixedValue.isEmpty()
+                && otpFixedValue.equals(user.getOtpReference())) {
+            log.info("Fixed OTP matched — skipping egov-otp validation for user: {}", user.getMobileNumber());
+            return true;
+        }
         Otp otp = Otp.builder().otp(user.getOtpReference()).identity(user.getMobileNumber()).tenantId(user.getTenantId())
                 .userType(user.getType()).build();
         RequestInfo requestInfo = RequestInfo.builder().action("validate").ts(System.currentTimeMillis()).build();
