@@ -112,9 +112,11 @@ public class EnrichmentService {
         
 		Boolean isWfEnabled = config.getIsWorkflowEnabled();
 		Boolean iswfStarting = propertyFromDb.getStatus().equals(Status.ACTIVE);
+		boolean isDataUpload = org.egov.pt.models.enums.CreationReason.DATA_UPLOAD.equals(property.getCreationReason());
 
-		if (!isWfEnabled) {
+		if (!isWfEnabled || isDataUpload) {
 
+			// DATA_UPLOAD bypasses workflow: keep the existing IDs and set ACTIVE directly.
 			property.setStatus(Status.ACTIVE);
 			property.getAddress().setId(propertyFromDb.getAddress().getId());
 
@@ -326,9 +328,7 @@ public class EnrichmentService {
      */
     public void enrichAssignes(Property property) {
 
-		if(config.getIsWorkflowEnabled() && property.getWorkflow().getAction().equalsIgnoreCase(PTConstants.CITIZEN_SENDBACK_ACTION)) {
-
-				List<OwnerInfo> assignes = new LinkedList<>();
+		if(config.getIsWorkflowEnabled() && property.getWorkflow() != null && property.getWorkflow().getAction().equalsIgnoreCase(PTConstants.CITIZEN_SENDBACK_ACTION)) {
 
 				// Adding owners to assignes list
 				property.getOwners().forEach(ownerInfo -> {

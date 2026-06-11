@@ -254,7 +254,13 @@ public class PropertyService {
 
 		String tenantId = request.getProperty().getTenantId();
 		propertyValidator.validateRequestForUpdate(request, propertyFromSearch);
-		if (CreationReason.CREATE.equals(request.getProperty().getCreationReason())) {
+
+		boolean isDataUpload = CreationReason.DATA_UPLOAD.equals(request.getProperty().getCreationReason());
+
+		if (isDataUpload) {
+			// DATA_UPLOAD: update existing user details directly (owner info may have changed)
+			userService.updateUser(request);
+		} else if (CreationReason.CREATE.equals(request.getProperty().getCreationReason())) {
 			userService.createUser(request);
 		} else if (request.getProperty().getSource().toString().equals("WS")
 				&& CreationReason.UPDATE.equals(request.getProperty().getCreationReason())) {
@@ -267,6 +273,11 @@ public class PropertyService {
 		enrichmentService.enrichAssignes(request.getProperty());
 		enrichmentService.enrichUpdateRequest(request, propertyFromSearch);
 
+		// For DATA_UPLOAD, override any workflow-driven status: go directly to ACTIVE.
+		if (isDataUpload) {
+			request.getProperty().setStatus(Status.ACTIVE);
+		}
+
 		PropertyRequest OldPropertyRequest = PropertyRequest.builder()
 				.requestInfo(request.getRequestInfo())
 				.property(propertyFromSearch)
@@ -274,7 +285,7 @@ public class PropertyService {
 
 		util.mergeAdditionalDetails(request, propertyFromSearch);
 
-		if(config.getIsWorkflowEnabled()) {
+		if (config.getIsWorkflowEnabled() && !isDataUpload) {
 
 			State state = wfService.updateWorkflow(request, CreationReason.UPDATE);
 
