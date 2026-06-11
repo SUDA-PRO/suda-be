@@ -149,9 +149,11 @@ public class PropertyService {
 
 		boolean isRequestForStatusChange=CreationReason.STATUS.equals(request.getProperty().getCreationReason());
 
+		boolean isDataUploadRequest = CreationReason.DATA_UPLOAD.equals(request.getProperty().getCreationReason());
+
 		if (isRequestForOwnerMutation)
 			processOwnerMutation(request, propertyFromSearch);
-		else if(isNumberDifferent)
+		else if(isNumberDifferent && !isDataUploadRequest)
 			processMobileNumberUpdate(request, propertyFromSearch);
 
 		else
