@@ -258,8 +258,10 @@ public class PropertyService {
 		boolean isDataUpload = CreationReason.DATA_UPLOAD.equals(request.getProperty().getCreationReason());
 
 		if (isDataUpload) {
-			// DATA_UPLOAD: update existing user details directly (owner info may have changed)
-			userService.updateUser(request);
+			// DATA_UPLOAD: keep existing owner UUIDs from DB; do not call _updatenovalidate
+			// (that endpoint requires SYSTEM role). Owner demographic data is preserved
+			// but the property fields (address, units, etc.) are updated.
+			request.getProperty().setOwners(util.getCopyOfOwners(propertyFromSearch.getOwners()));
 		} else if (CreationReason.CREATE.equals(request.getProperty().getCreationReason())) {
 			userService.createUser(request);
 		} else if (request.getProperty().getSource().toString().equals("WS")
