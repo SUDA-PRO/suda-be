@@ -645,7 +645,9 @@ public class UserService {
         /* encrypt here */
         /* encrypted value is stored in DB*/
         user = encryptionDecryptionUtil.encryptObject(user, "User", User.class);
-        userRepository.update(user, user, requestInfo.getUserInfo().getId(), requestInfo.getUserInfo().getUuid());
+        Long updatedById = (requestInfo.getUserInfo() != null) ? requestInfo.getUserInfo().getId() : user.getId();
+        String updatedByUuid = (requestInfo.getUserInfo() != null) ? requestInfo.getUserInfo().getUuid() : user.getUuid();
+        userRepository.update(user, user, updatedById, updatedByUuid);
     }
 
 
